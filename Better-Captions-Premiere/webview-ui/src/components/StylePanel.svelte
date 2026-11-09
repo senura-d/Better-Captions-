@@ -1,4 +1,6 @@
 <script lang="ts">
+  import SectionHeader from "./SectionHeader.svelte";
+  import Type from "@lucide/svelte/icons/type";
   import FontPicker from "./FontPicker.svelte";
   import type { StyleConfig } from "../lib/types";
 
@@ -33,24 +35,7 @@
 </script>
 
 <div class="border-b border-panel-border">
-  <button
-    onclick={() => (isOpen = !isOpen)}
-    class="w-full px-3 py-2 flex items-center justify-between text-[12.5px] font-semibold text-panel-text bg-surface hover:bg-panel-hover-bg transition-colors cursor-pointer border-none"
-  >
-    <span>Font & Style</span>
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      class="transition-transform"
-      class:rotate-180={isOpen}
-    >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  </button>
+  <SectionHeader title="Font &amp; Style" icon={Type} open={isOpen} onToggle={() => (isOpen = !isOpen)} />
 
   {#if isOpen}
     <div class="px-3 py-2.5 space-y-3">

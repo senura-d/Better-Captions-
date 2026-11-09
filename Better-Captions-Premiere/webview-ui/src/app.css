@@ -1,52 +1,34 @@
 @import "tailwindcss";
 
-/* Graphite surfaces that sit inside Premiere's own panel colours, and one
-   signature colour per tool (set by .tool-* on the tool's view). */
-@theme {
-  --color-panel-bg: var(--uxp-host-background-color, #232326);
-  --color-panel-text: var(--uxp-host-text-color, #ececef);
-  --color-panel-border: #3e3e45;
-  --color-panel-link: var(--uxp-host-link-text-color, #8ab4ff);
-  --color-panel-hover-bg: #3a3a41;
+/* Neutral greys that match Premiere Pro's own panels, and a single accent:
+   Premiere's selection blue, used for primary actions, selection and focus.
+   "static" keeps every token in the CSS even when no utility class uses it,
+   because component styles read them with var(). */
+@theme static {
+  --color-panel-bg: var(--uxp-host-background-color, #232323);
+  --color-panel-text: var(--uxp-host-text-color, #e3e3e3);
+  --color-panel-border: #3a3a3a;
+  --color-panel-link: var(--uxp-host-link-text-color, #5aa5ff);
+  --color-panel-hover-bg: #3d3d3d;
   --color-panel-hover-text: #ffffff;
-  --color-panel-secondary: #9c9ca6;
+  --color-panel-secondary: #a3a3a3;
+  --color-panel-tertiary: #7c7c7c;
 
-  --color-surface: #2b2b2f;
-  --color-surface-raised: #34343a;
-  --color-surface-overlay: #3d3d44;
+  --color-surface: #2a2a2a;
+  --color-surface-raised: #333333;
+  --color-surface-overlay: #3e3e3e;
 
-  /* Default accent (home screen); each tool overrides these four. */
-  --color-accent: #c9c9d1;
-  --color-accent-hover: #e2e2e8;
-  --color-accent-soft: rgba(201, 201, 209, 0.14);
-  --color-accent-ink: #1d1d21;
+  --color-accent: #2680eb;
+  --color-accent-hover: #378ef0;
+  --color-accent-soft: rgba(38, 128, 235, 0.16);
+  --color-accent-ink: #ffffff;
 
-  --color-success: #4fd1a5;
-  --color-warning: #ffcf5a;
-  --color-error: #ff7a6b;
+  --color-success: #33ab84;
+  --color-warning: #e68619;
+  --color-error: #f0564b;
 
-  --font-display: "Bahnschrift", "DIN Alternate", "DIN Condensed", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Text", "Segoe UI", -apple-system, "SF Pro Text", system-ui, sans-serif;
   --font-body: "Segoe UI Variable Text", "Segoe UI", -apple-system, "SF Pro Text", system-ui, sans-serif;
-}
-
-/* Tool colours: tally amber (captions), marker rose (beats), grading teal (LUTs). */
-.tool-captions {
-  --color-accent: #ffb547;
-  --color-accent-hover: #ffc56e;
-  --color-accent-soft: rgba(255, 181, 71, 0.15);
-  --color-accent-ink: #241604;
-}
-.tool-beats {
-  --color-accent: #ff6b8b;
-  --color-accent-hover: #ff8aa3;
-  --color-accent-soft: rgba(255, 107, 139, 0.15);
-  --color-accent-ink: #2a0710;
-}
-.tool-luts {
-  --color-accent: #3ccfc5;
-  --color-accent-hover: #63ddd5;
-  --color-accent-soft: rgba(60, 207, 197, 0.15);
-  --color-accent-ink: #04201e;
 }
 
 :root,
@@ -59,8 +41,8 @@ body {
   font-family: var(--font-body);
   background-color: var(--color-panel-bg);
   color: var(--color-panel-text);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -73,11 +55,10 @@ body {
 .font-display {
   font-family: var(--font-display);
   font-weight: 600;
-  letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
 }
 
-/* Keyboard focus is always visible, in the current tool's colour. */
+/* Keyboard focus is always visible. */
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
@@ -89,12 +70,16 @@ button:focus:not(:focus-visible) {
 /* ---------- shared controls ---------- */
 
 .btn-primary {
-  padding: 0.5rem 0.9rem;
-  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0.45rem 0.9rem;
+  border-radius: 4px;
   border: none;
   background: var(--color-accent);
   color: var(--color-accent-ink);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   transition: background 120ms;
@@ -108,8 +93,12 @@ button:focus:not(:focus-visible) {
 }
 
 .btn-quiet {
-  padding: 0.35rem 0.7rem;
-  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0.3rem 0.65rem;
+  border-radius: 4px;
   border: 1px solid var(--color-panel-border);
   background: var(--color-surface-raised);
   color: var(--color-panel-text);
@@ -125,10 +114,13 @@ button:focus:not(:focus-visible) {
 }
 
 .link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 0;
   border: none;
   background: none;
-  color: var(--color-accent);
+  color: var(--color-panel-link);
   font-size: 12px;
   cursor: pointer;
 }
@@ -140,29 +132,34 @@ button:focus:not(:focus-visible) {
 .seg {
   display: inline-flex;
   padding: 2px;
-  border-radius: 7px;
+  border-radius: 5px;
   background: var(--color-surface);
   border: 1px solid var(--color-panel-border);
 }
 .seg button {
-  padding: 0.25rem 0.7rem;
+  padding: 0.2rem 0.65rem;
   border: none;
-  border-radius: 5px;
+  border-radius: 3px;
   background: transparent;
   color: var(--color-panel-secondary);
   font-size: 12px;
   cursor: pointer;
 }
-.seg button.on {
-  background: var(--color-surface-raised);
+.seg button:hover:not(.on) {
   color: var(--color-panel-text);
-  box-shadow: inset 0 -2px 0 var(--color-accent);
+}
+.seg button.on {
+  background: var(--color-surface-overlay);
+  color: var(--color-panel-text);
 }
 
 /* Filter chips. */
 .chip {
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
   border: 1px solid var(--color-panel-border);
   background: transparent;
   color: var(--color-panel-text);
@@ -175,7 +172,7 @@ button:focus:not(:focus-visible) {
 .chip.on {
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
-  color: var(--color-accent);
+  color: var(--color-panel-text);
 }
 .chip-add {
   border-style: dashed;
@@ -183,6 +180,9 @@ button:focus:not(:focus-visible) {
 }
 
 input[type="range"] {
+  accent-color: var(--color-accent);
+}
+input[type="checkbox"] {
   accent-color: var(--color-accent);
 }
 

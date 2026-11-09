@@ -1,4 +1,7 @@
 <script lang="ts">
+  import SquarePlus from "@lucide/svelte/icons/square-plus";
+  import CaptionsIcon from "@lucide/svelte/icons/captions";
+  import Download from "@lucide/svelte/icons/download";
   import type { AnimationConfig, CaptionItem, StyleConfig, TranscriptJSON } from "../lib/types";
   import { captionsToSrt, transcriptToTxt } from "../lib/export/text";
   import { formatTime } from "../lib/transcript/parser";
@@ -86,8 +89,9 @@
     <button
       onclick={addAnimated}
       disabled={!!busy || empty}
-      class="w-full py-2.5 rounded-md text-[13px] font-semibold border-none cursor-pointer bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50 disabled:cursor-not-allowed"
+      class="btn-primary w-full py-2"
     >
+      <SquarePlus size={15} strokeWidth={1.75} />
       Add animated captions to timeline
     </button>
     <p class="text-[11px] text-panel-secondary leading-snug">
@@ -96,17 +100,18 @@
     <button
       onclick={addEditable}
       disabled={!!busy || empty}
-      class="w-full py-2 rounded-md text-[12px] font-semibold cursor-pointer border border-panel-border bg-surface-raised text-panel-text hover:bg-panel-hover-bg disabled:opacity-50 disabled:cursor-not-allowed"
+      class="btn-quiet w-full py-1.5"
     >
+      <CaptionsIcon size={14} strokeWidth={1.75} />
       Add as editable Premiere captions
     </button>
     <p class="text-[11px] text-panel-secondary leading-snug">
       Plain captions on a caption track that you can edit and restyle in Premiere (no animation).
     </p>
     <div class="flex items-center gap-3 pt-0.5">
-      <span class="text-[11px] text-panel-secondary">Save a file instead:</span>
-      <button onclick={() => saveFile("srt")} disabled={!!busy || empty} class="text-[12px] text-accent bg-transparent border-none cursor-pointer p-0 disabled:opacity-50">SRT</button>
-      <button onclick={() => saveFile("txt")} disabled={!!busy || empty} class="text-[12px] text-accent bg-transparent border-none cursor-pointer p-0 disabled:opacity-50">TXT</button>
+      <span class="text-[11px] text-panel-secondary inline-flex items-center gap-1"><Download size={12} strokeWidth={1.75} />Save a file instead:</span>
+      <button onclick={() => saveFile("srt")} disabled={!!busy || empty} class="link disabled:opacity-50">SRT</button>
+      <button onclick={() => saveFile("txt")} disabled={!!busy || empty} class="link disabled:opacity-50">TXT</button>
     </div>
   {:else}
     <div class="text-[12.5px] font-semibold text-panel-text">Export captions</div>
@@ -114,14 +119,14 @@
       <button
         onclick={() => saveFile("srt")}
         disabled={!!busy || empty}
-        class="py-2.5 rounded-md text-[13px] font-semibold border-none cursor-pointer bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50 disabled:cursor-not-allowed"
+        class="py-2.5 rounded text-[13px] font-semibold border-none cursor-pointer bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Export SRT
       </button>
       <button
         onclick={() => saveFile("txt")}
         disabled={!!busy || empty}
-        class="py-2.5 rounded-md text-[13px] font-semibold cursor-pointer border border-panel-border bg-surface-raised text-panel-text hover:bg-panel-hover-bg disabled:opacity-50 disabled:cursor-not-allowed"
+        class="py-2.5 rounded text-[13px] font-semibold cursor-pointer border border-panel-border bg-surface-raised text-panel-text hover:bg-panel-hover-bg disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Export TXT
       </button>
@@ -140,7 +145,7 @@
     </div>
   {/if}
   {#if error}
-    <p class="text-[12px] text-red-400 break-words">{error}</p>
+    <p class="text-[12px] text-error break-words">{error}</p>
   {/if}
   {#if status}
     <p class="text-[12px] text-green-400 break-words">{status}</p>

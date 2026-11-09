@@ -112,7 +112,7 @@
   <button
     onclick={handleExport}
     disabled={isExporting || captions.length === 0}
-    class="w-full py-2.5 px-4 rounded-md text-[13px] font-semibold transition-all border-none cursor-pointer
+    class="w-full py-2.5 px-4 rounded text-[13px] font-semibold transition-all border-none cursor-pointer
       {isExporting
         ? 'bg-panel-border text-panel-secondary cursor-wait'
         : captions.length === 0
@@ -141,7 +141,7 @@
   </button>
 
   {#if error}
-    <p class="text-[12px] text-red-400 mt-1.5 px-1">{error}</p>
+    <p class="text-[12px] text-error mt-1.5 px-1">{error}</p>
   {/if}
 
   {#if status && !isExporting}

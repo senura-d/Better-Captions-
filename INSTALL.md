@@ -95,7 +95,7 @@ Notes:
 
 ## The home menu
 
-The panel opens on a menu with three tools: **Captions**, **Beat Markers** and **LUT Preview**. Each shows what it's doing (captions ready, last BPM found, LUT picked). Click one to open it; the arrow at the top left brings you back. Each tool has its own colour: amber for captions, rose for beats, teal for LUTs.
+The panel opens on a menu with three tools: **Captions**, **Beat Markers** and **LUT Preview**. Each shows what it's doing (captions ready, last BPM found, LUT picked). Click one to open it; the arrow at the top left brings you back. The panel uses Premiere's own greys and selection blue, with Lucide icons.
 
 ## LUT Preview (extension version)
 
@@ -104,8 +104,15 @@ The panel opens on a menu with three tools: **Captions**, **Beat Markers** and *
    - **Program** uses what the Program monitor shows, with your current effects.
    - Click **Grab frame** after moving the playhead.
 2. Browse the **Library**: your Premiere LUTs, Adobe's shared LUT folder, and any folder you add with **+ Add folder**. Pick a folder, or search all LUTs by name. Every thumbnail is your own frame with that LUT applied.
-3. **Hover** a thumbnail to preview it large; **click** to choose it. Drag the split line to compare **Original** and the LUT, set **Intensity**, or untick **Compare** to see the full frame. Star LUTs to keep them under **★ Favourites**.
-4. **Apply to selected clips** adds Lumetri Color to the selected clips and tries to set its Look. Premiere doesn't officially let extensions set the LUT, so if it doesn't take, the panel says so and copies the LUT's path. Then, in **Lumetri Color > Creative > Look**, choose **Browse** and paste it. **Show in folder** opens the LUT in Explorer.
+3. **Hover** a thumbnail to preview it large. Drag the split line to compare **Original** and the LUT, set **Intensity**, or click the compare button to see the full frame. Star LUTs to keep them under **Favourites**.
+4. **Click** a LUT to put it on the clip in the timeline. The row under the preview shows which clip: the clips you selected, or else the top clip under the playhead. With **Live on clip** on (the default), every LUT you click goes straight onto that clip through Lumetri Color, so the Program monitor shows the real result, and the Intensity slider follows. Then:
+   - **Keep** leaves the LUT on the clip.
+   - **Undo** puts the clip back exactly as it was, including any Look it had before.
+   - With Live on clip off, click **Put on clip** instead.
+5. Premiere doesn't officially let extensions choose Lumetri's LUT. The first time, with the clip under the playhead, the panel tries the known ways and checks the Program monitor to see which one really changes the picture. It remembers the answer for your Premiere version.
+   - If none works, Lumetri Color is still added and the LUT's path is copied. In **Lumetri Color > Creative > Look**, choose **Browse** and paste it.
+   - **Copy Lumetri details** copies information for a bug report. **Check again** retries, for example after a Premiere update.
+   - **Show in folder** opens the LUT in Explorer.
 
 Only `.cube` LUTs are listed (that's nearly all of them); macOS junk files from LUT packs are skipped.
 

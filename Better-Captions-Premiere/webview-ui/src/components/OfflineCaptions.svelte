@@ -1,4 +1,6 @@
 <script lang="ts">
+  import SectionHeader from "./SectionHeader.svelte";
+  import AudioLines from "@lucide/svelte/icons/audio-lines";
   import { onDestroy } from "svelte";
   import type { TranscriptJSON, TranscriptSource } from "../lib/types";
   import { whisperToTranscript } from "../lib/transcript/whisper";
@@ -488,15 +490,7 @@
   ondragleave={(e) => { if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) dragging = false; }}
   ondrop={onDrop}
 >
-  <button
-    onclick={() => (isOpen = !isOpen)}
-    class="w-full px-3 py-2 flex items-center justify-between text-[12.5px] font-semibold text-panel-text bg-surface hover:bg-panel-hover-bg transition-colors cursor-pointer border-none"
-  >
-    <span>Offline Captions</span>
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="transition-transform" class:rotate-180={isOpen}>
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  </button>
+  <SectionHeader title="Offline Captions" icon={AudioLines} open={isOpen} onToggle={() => (isOpen = !isOpen)} />
 
   {#if isOpen}
     <div class="px-3 py-2.5 space-y-2.5">
@@ -527,7 +521,7 @@
           </p>
           {#if canUseFiles}
             {#if trackScan}
-              <div class="rounded-md border border-panel-border divide-y divide-panel-border">
+              <div class="rounded border border-panel-border divide-y divide-panel-border">
                 {#each trackScan.tracks as track (track.index)}
                   {@const usable = !track.muted && track.clipCount > 0}
                   <div class="flex items-center gap-2 px-2 py-1.5" class:opacity-50={!usable}>
@@ -587,7 +581,7 @@
           {/if}
         {:else if source === "selection"}
           {#if selection?.clips.length}
-            <div class="rounded-md border border-panel-border px-2.5 py-2 space-y-1">
+            <div class="rounded border border-panel-border px-2.5 py-2 space-y-1">
               {#each selection.clips.slice(0, 5) as clip}
                 <div class="flex items-center justify-between gap-2 text-[12px]">
                   <span class="text-panel-text truncate" title={clip.name}>{clip.name}</span>
@@ -616,7 +610,7 @@
         {:else}
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div
-            class="rounded-md border-2 border-dashed px-3 py-4 text-center cursor-pointer transition-colors"
+            class="rounded border-2 border-dashed px-3 py-4 text-center cursor-pointer transition-colors"
             style="border-color:{dragging ? 'var(--color-accent)' : 'var(--color-panel-border)'};background:{dragging ? 'var(--color-accent-soft)' : 'transparent'}"
             onclick={() => !busy && chooseFile()}
             onkeydown={(e) => e.key === "Enter" && !busy && chooseFile()}
@@ -719,7 +713,7 @@
         {:else if !engine.ready || !modelInstalled}
           <button
             onclick={runSetup}
-            class="w-full py-2 rounded-md text-[13px] font-semibold border-none cursor-pointer bg-accent hover:bg-accent-hover text-accent-ink"
+            class="w-full py-2 rounded text-[13px] font-semibold border-none cursor-pointer bg-accent hover:bg-accent-hover text-accent-ink"
           >
             {onlyDetectorMissing && modelInstalled
               ? "Finish setup (1 MB speech detector)"
@@ -740,7 +734,7 @@
           <button
             onclick={runTranscription}
             disabled={(source === "file" && !file) || (source === "selection" && !selection?.clips.length)}
-            class="w-full py-2 rounded-md text-[13px] font-semibold border-none cursor-pointer bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50 disabled:cursor-not-allowed"
+            class="w-full py-2 rounded text-[13px] font-semibold border-none cursor-pointer bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {#if source === "file"}
               {file ? "Generate captions from this file" : "Choose a file first"}
@@ -765,7 +759,7 @@
       {/if}
 
       {#if error}
-        <p class="text-[12px] text-red-400 whitespace-pre-wrap break-words">{error}</p>
+        <p class="text-[12px] text-error whitespace-pre-wrap break-words">{error}</p>
       {/if}
       {#if notice}
         <p class="text-[12px] text-panel-secondary break-words">{notice}</p>

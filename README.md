@@ -59,6 +59,10 @@ Better Captions can be installed as a **CEP Extension** (recommended) or a **UXP
 
 ### Option A: 1-Click Installer for Windows (Easiest)
 
+<p align="center">
+  <img src="installer_preview.png" alt="Better Captions Modern Setup UI" width="540" />
+</p>
+
 1. **Close Premiere Pro.**
 2. Double-click **`BetterCaptionsSetup.exe`**.
 3. Click **Install**.

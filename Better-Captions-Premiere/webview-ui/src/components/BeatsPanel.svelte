@@ -1,4 +1,6 @@
 <script lang="ts">
+  import SectionHeader from "./SectionHeader.svelte";
+  import AudioWaveform from "@lucide/svelte/icons/audio-waveform";
   import { analyzeBeats, beatMarkers, confidenceLabel, type BeatAnalysis, type BeatSpacing } from "../lib/beats";
   import { formatTime } from "../lib/transcript/parser";
   import { toolStatus } from "../lib/toolStatus.svelte";
@@ -172,15 +174,7 @@
 
 <div class:border-b={!standalone} class="border-panel-border">
   {#if !standalone}
-  <button
-    onclick={() => (isOpen = !isOpen)}
-    class="w-full px-3 py-2 flex items-center justify-between text-[12.5px] font-semibold text-panel-text bg-surface hover:bg-panel-hover-bg transition-colors cursor-pointer border-none"
-  >
-    <span>Beat Markers</span>
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="transition-transform" class:rotate-180={isOpen}>
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  </button>
+  <SectionHeader title="Beat Markers" icon={AudioWaveform} open={isOpen} onToggle={() => (isOpen = !isOpen)} />
   {/if}
 
   {#if isOpen}
@@ -242,13 +236,13 @@
       <button
         onclick={analyse}
         disabled={!!busy}
-        class="w-full py-2 rounded-md text-[13px] font-semibold border-none cursor-pointer bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50"
+        class="w-full py-2 rounded text-[13px] font-semibold border-none cursor-pointer bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50"
       >
         {busy && !analysis ? `${busy}…` : "Analyse beats"}
       </button>
 
       {#if analysis && confidence}
-        <div class="rounded-md border border-panel-border p-2.5 space-y-2">
+        <div class="rounded border border-panel-border p-2.5 space-y-2">
           <div class="flex items-baseline justify-between">
             <span class="text-[22px] font-semibold text-panel-text">{analysis.bpm} <span class="text-[12px] text-panel-secondary font-normal">BPM</span></span>
             <span class="text-[11px] text-panel-secondary truncate ml-2" title={analysedLabel}>{analysedLabel}</span>
@@ -293,7 +287,7 @@
           <button
             onclick={addMarkers}
             disabled={!!busy || !markers.length}
-            class="w-full py-2 rounded-md text-[13px] font-semibold border-none cursor-pointer bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50"
+            class="w-full py-2 rounded text-[13px] font-semibold border-none cursor-pointer bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-50"
           >
             {busy === "Adding markers" ? "Adding markers…" : `Add ${markers.length} beat markers`}
           </button>
@@ -312,7 +306,7 @@
         <p class="text-[12px] text-accent">{busy}…</p>
       {/if}
       {#if error}
-        <p class="text-[12px] text-red-400 break-words">{error}</p>
+        <p class="text-[12px] text-error break-words">{error}</p>
       {/if}
       {#if status}
         <p class="text-[12px] text-green-400 break-words">{status}</p>

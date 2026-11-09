@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Play from "@lucide/svelte/icons/play";
+  import Pause from "@lucide/svelte/icons/pause";
   import { onMount } from "svelte";
   import type { CaptionItem, StyleConfig, AnimationConfig } from "../lib/types";
   import { CaptionRenderer } from "../lib/canvas/engine";
@@ -165,14 +167,9 @@
       aria-label={isPlaying ? "Pause" : "Play"}
     >
       {#if isPlaying}
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <rect x="6" y="4" width="4" height="16" rx="1" />
-          <rect x="14" y="4" width="4" height="16" rx="1" />
-        </svg>
+        <Pause size={15} strokeWidth={1.75} />
       {:else}
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <polygon points="5,3 19,12 5,21" />
-        </svg>
+        <Play size={15} strokeWidth={1.75} />
       {/if}
     </button>
 

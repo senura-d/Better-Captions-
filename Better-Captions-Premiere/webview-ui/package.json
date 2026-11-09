@@ -7,6 +7,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@lucide/svelte": "0.544.0",
     "comlink": "^4.4.2",
     "gsap": "3.15.0",
     "music-tempo": "1.0.3"

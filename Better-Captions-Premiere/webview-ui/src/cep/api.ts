@@ -30,13 +30,13 @@ let hostReady: Promise<void> | null = null;
 function ensureHostScript(): Promise<void> {
   if (!hostReady) {
     hostReady = (async () => {
-      if ((await evalRaw("typeof bc_getActiveSequenceInfo")) === "function") return;
+      if ((await evalRaw("typeof bc_getLutTarget")) === "function") return;
       const extensionUrl: string = cep().getSystemPath?.("extension") ?? "";
       const extensionDir = decodeURIComponent(extensionUrl.replace(/^file:\/{2,3}/, ""));
       const script = `${extensionDir.replace(/\/$/, "")}/host/index.jsx`;
       // Wrapped so ExtendScript reports the actual error and line instead of "EvalScript error.".
       const loaded = await evalRaw(
-        `(function () { try { $.evalFile(${JSON.stringify(script)}); return typeof bc_getActiveSequenceInfo; } ` +
+        `(function () { try { $.evalFile(${JSON.stringify(script)}); return typeof bc_getLutTarget; } ` +
           `catch (e) { return "ERROR: " + e.toString() + (e.line ? " (line " + e.line + ")" : ""); } })()`,
       );
       if (loaded !== "function") {
@@ -225,7 +225,12 @@ export const cepApi = {
       return { success: false, error: e?.message || String(e) };
     }
   },
-  applyLutToSelection: (file: string) => evalHost("bc_applyLutToSelection", file),
+  // LUT on timeline clips (selected clips, or the clip under the playhead).
+  getLutTarget: () => evalHost("bc_getLutTarget"),
+  setClipLut: (file: string, intensity: number, strategy: number) => evalHost("bc_setClipLut", file, intensity, strategy),
+  restoreClipLut: () => evalHost("bc_restoreClipLut"),
+  keepClipLut: () => evalHost("bc_keepClipLut"),
+  lumetriReport: () => evalHost("bc_lumetriReport"),
 
   // Native "Open" dialog for an audio/video file (CEP's built-in cep.fs API).
   // Resolves null if the user cancels, undefined if the native dialog isn't available.

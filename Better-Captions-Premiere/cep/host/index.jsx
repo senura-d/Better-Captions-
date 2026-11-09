@@ -724,59 +724,259 @@ function bc_findLumetri(clip) {
   return null;
 }
 
-// Adds Lumetri Color to each selected video clip (if it has none) and tries to
-// set its Look to `lutPath`. Setting the Look isn't officially supported by
-// Premiere's scripting, so the result says whether it actually took.
-function bc_applyLutToSelection(lutPath) {
+// ---------- LUT on timeline clips ----------
+// Premiere's scripting has no documented way to set Lumetri's Look to a LUT
+// file. Lumetri does keep the LUT path in a hidden text property next to its
+// Look / Input LUT menus, and writing it works in some versions. Several ways
+// of writing it ("strategies") are tried; the panel checks the Program monitor
+// to see which one really changes the picture, and remembers it.
+//
+// Changes are kept in bc_lutSession so Undo can put every clip back exactly.
+
+var bc_lutSession = null;
+
+// The clips a LUT goes on: the selected video clips, or else the top video
+// clip under the playhead.
+function bc_lutTargets(seq) {
+  var out = [];
+  var sel = seq.getSelection() || [];
+  for (var i = 0; i < sel.length; i++) if (sel[i].mediaType === "Video") out.push(sel[i]);
+  if (out.length) return { clips: out, fromSelection: true };
+  var time = seq.getPlayerPosition().seconds;
+  for (var t = seq.videoTracks.numTracks - 1; t >= 0; t--) {
+    var track = seq.videoTracks[t];
+    if (track.isMuted()) continue;
+    for (var c = 0; c < track.clips.numItems; c++) {
+      var clip = track.clips[c];
+      if (clip.disabled || time < clip.start.seconds || time >= clip.end.seconds) continue;
+      return { clips: [clip], fromSelection: false };
+    }
+  }
+  return { clips: [], fromSelection: false };
+}
+
+function bc_videoTrackOf(seq, clip) {
+  for (var t = 0; t < seq.videoTracks.numTracks; t++) {
+    var track = seq.videoTracks[t];
+    for (var c = 0; c < track.clips.numItems; c++) if (track.clips[c].nodeId === clip.nodeId) return t;
+  }
+  return -1;
+}
+
+function bc_findVideoClip(seq, nodeId) {
+  for (var t = 0; t < seq.videoTracks.numTracks; t++) {
+    var track = seq.videoTracks[t];
+    for (var c = 0; c < track.clips.numItems; c++) if (track.clips[c].nodeId === nodeId) return track.clips[c];
+  }
+  return null;
+}
+
+// Describes what a LUT would go on, for the panel to show.
+function bc_getLutTarget() {
   try {
     var seq = app.project.activeSequence;
     if (!seq) return bc_json({ success: false, error: "Open a sequence first." });
-    var selection = seq.getSelection() || [];
-    var videos = [];
-    for (var i = 0; i < selection.length; i++) if (selection[i].mediaType === "Video") videos.push(selection[i]);
-    if (!videos.length) return bc_json({ success: false, error: "Select one or more video clips in the timeline first." });
+    var target = bc_lutTargets(seq);
+    var time = seq.getPlayerPosition().seconds;
+    var clips = [];
+    var underPlayhead = false;
+    for (var i = 0; i < target.clips.length; i++) {
+      var clip = target.clips[i];
+      var spans = time >= clip.start.seconds && time < clip.end.seconds;
+      if (spans) underPlayhead = true;
+      clips.push({ name: clip.name, track: bc_videoTrackOf(seq, clip) + 1, lumetri: !!bc_findLumetri(clip) });
+    }
+    return bc_json({ success: true, clips: clips, fromSelection: target.fromSelection, underPlayhead: underPlayhead, version: String(app.version) });
+  } catch (e) {
+    return bc_error(e);
+  }
+}
 
-    app.enableQE();
-    var q = qe.project.getActiveSequence();
-    var lumetriEffect = qe.project.getVideoEffectByName("Lumetri Color");
-    var fileName = lutPath.substr(Math.max(lutPath.lastIndexOf("/"), lutPath.lastIndexOf("\\")) + 1);
+// Adds Lumetri Color to a clip through the QE DOM (the regular DOM can't add effects).
+function bc_addLumetri(seq, clip) {
+  app.enableQE();
+  var effect = qe.project.getVideoEffectByName("Lumetri Color");
+  if (!effect) return false;
+  var t = bc_videoTrackOf(seq, clip);
+  if (t < 0) return false;
+  var qTrack = qe.project.getActiveSequence().getVideoTrackAt(t);
+  for (var n = 0; n < qTrack.numItems; n++) {
+    var qItem = qTrack.getItemAt(n);
+    if (qItem && qItem.type !== "Empty" && Math.abs(qItem.start.secs - clip.start.seconds) < 0.01) {
+      qItem.addVideoEffect(effect);
+      return true;
+    }
+  }
+  return false;
+}
+
+// Text property just before `at` (Lumetri keeps LUT paths there).
+function bc_pathSlot(props, at) {
+  if (at < 1) return -1;
+  var low = Math.max(1, at - 3);
+  for (var j = at - 1; j >= low; j--) {
+    try {
+      if (typeof props[j].getValue() === "string") return j;
+    } catch (e) {}
+  }
+  return at - 1;
+}
+
+function bc_lumetriLayout(lum) {
+  var props = lum.properties;
+  var L = { look: -1, input: -1, intensity: -1 };
+  for (var p = 0; p < props.numItems; p++) {
+    var n = props[p].displayName;
+    if (n === "Look" && L.look < 0) L.look = p;
+    else if (n === "Input LUT" && L.input < 0) L.input = p;
+    else if (n === "Intensity" && L.look >= 0 && L.intensity < 0) L.intensity = p;
+  }
+  L.lookPath = bc_pathSlot(props, L.look);
+  L.inputPath = bc_pathSlot(props, L.input);
+  return L;
+}
+
+var bc_lutSlots = ["look", "lookPath", "input", "inputPath", "intensity"];
+
+function bc_lumetriSnapshot(lum, L) {
+  var s = {};
+  for (var i = 0; i < bc_lutSlots.length; i++) {
+    var idx = L[bc_lutSlots[i]];
+    if (idx < 0) continue;
+    try { s[bc_lutSlots[i]] = lum.properties[idx].getValue(); } catch (e) {}
+  }
+  return s;
+}
+
+function bc_lumetriRestore(lum, L, s) {
+  // Menus first, then the paths, so a restored path isn't cleared by its menu.
+  var order = ["look", "input", "lookPath", "inputPath", "intensity"];
+  for (var i = 0; i < order.length; i++) {
+    var idx = L[order[i]];
+    if (idx < 0 || s[order[i]] === undefined) continue;
+    try { lum.properties[idx].setValue(s[order[i]], true); } catch (e) {}
+  }
+}
+
+function bc_fileNameOf(path) {
+  return path.substr(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1);
+}
+
+// Writes the LUT path one way; returns true if Premiere kept the value.
+function bc_writeLut(lum, L, lutPath, strategy) {
+  var props = lum.properties;
+  var slot = strategy >= 2 ? L.inputPath : L.lookPath;
+  var menu = strategy >= 2 ? L.input : L.look;
+  if (slot < 0) return false;
+  try {
+    if (strategy === 1 && menu >= 0) props[menu].setValue(1, true);
+    if (strategy === 3 && menu >= 0) props[menu + 1].setValue(1, true);
+    props[slot].setValue(lutPath, true);
+    if (strategy === 2 && menu >= 0) props[menu].setValue(1, true);
+    var now = props[slot].getValue();
+    return typeof now === "string" && now.indexOf(bc_fileNameOf(lutPath)) !== -1;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Puts `lutPath` on the target clips (adding Lumetri Color when needed) at
+// `intensity` (0-100). The clips' earlier state is remembered for Undo.
+function bc_setClipLut(lutPath, intensity, strategy) {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return bc_json({ success: false, error: "Open a sequence first." });
+    var target = bc_lutTargets(seq);
+    if (!target.clips.length) {
+      return bc_json({ success: false, error: "Select a video clip in the timeline, or move the playhead over one." });
+    }
+    if (!bc_lutSession || bc_lutSession.sequenceId !== String(seq.sequenceID)) {
+      bc_lutSession = { sequenceId: String(seq.sequenceID), clips: {} };
+    }
     var added = 0;
-    var lookSet = 0;
-
-    for (var v = 0; v < videos.length; v++) {
-      var clip = videos[v];
-      if (!bc_findLumetri(clip) && lumetriEffect) {
-        // Find the same clip in the QE DOM by track and start time.
-        for (var t = 0; t < seq.videoTracks.numTracks; t++) {
-          var track = seq.videoTracks[t];
-          var onTrack = false;
-          for (var c = 0; c < track.clips.numItems; c++) if (track.clips[c].nodeId === clip.nodeId) onTrack = true;
-          if (!onTrack) continue;
-          var qTrack = q.getVideoTrackAt(t);
-          for (var n = 0; n < qTrack.numItems; n++) {
-            var qItem = qTrack.getItemAt(n);
-            if (qItem && qItem.type !== "Empty" && Math.abs(qItem.start.secs - clip.start.seconds) < 0.01) {
-              qItem.addVideoEffect(lumetriEffect);
-              added++;
-              break;
-            }
-          }
-        }
+    var kept = 0;
+    var done = 0;
+    var names = [];
+    for (var i = 0; i < target.clips.length; i++) {
+      var clip = target.clips[i];
+      var lum = bc_findLumetri(clip);
+      var wasAdded = false;
+      if (!lum && bc_addLumetri(seq, clip)) {
+        lum = bc_findLumetri(clip);
+        wasAdded = !!lum;
+        if (wasAdded) added++;
       }
-      var lumetri = bc_findLumetri(clip);
-      if (!lumetri) continue;
-      for (var p = 0; p < lumetri.properties.numItems; p++) {
-        var prop = lumetri.properties[p];
-        if (prop.displayName !== "Look") continue;
-        try {
-          prop.setValue(lutPath, true);
-          var now = String(prop.getValue());
-          if (now.indexOf(fileName) !== -1) lookSet++;
-        } catch (eSet) {}
-        break;
+      if (!lum) continue;
+      var L = bc_lumetriLayout(lum);
+      if (L.look < 0 && L.input < 0) continue;
+      if (!bc_lutSession.clips[clip.nodeId]) {
+        bc_lutSession.clips[clip.nodeId] = { snapshot: bc_lumetriSnapshot(lum, L), added: wasAdded };
+      }
+      if (bc_writeLut(lum, L, lutPath, strategy)) kept++;
+      if (L.intensity >= 0) {
+        try { lum.properties[L.intensity].setValue(Math.max(0, Math.min(200, intensity)), true); } catch (eI) {}
+      }
+      done++;
+      names.push(clip.name);
+    }
+    if (!done) return bc_json({ success: false, error: "Couldn't add Lumetri Color to the clip." });
+    return bc_json({ success: true, clips: done, names: names, lumetriAdded: added, kept: kept, fromSelection: target.fromSelection });
+  } catch (e) {
+    return bc_error(e);
+  }
+}
+
+// Undo: puts every clip changed since the last Keep back as it was.
+function bc_restoreClipLut() {
+  try {
+    var seq = app.project.activeSequence;
+    var restored = 0;
+    if (seq && bc_lutSession && bc_lutSession.sequenceId === String(seq.sequenceID)) {
+      for (var id in bc_lutSession.clips) {
+        if (!bc_lutSession.clips.hasOwnProperty(id)) continue;
+        var clip = bc_findVideoClip(seq, id);
+        var lum = clip ? bc_findLumetri(clip) : null;
+        if (!lum) continue;
+        bc_lumetriRestore(lum, bc_lumetriLayout(lum), bc_lutSession.clips[id].snapshot);
+        restored++;
       }
     }
-    return bc_json({ success: true, clips: videos.length, lumetriAdded: added, lookSet: lookSet });
+    bc_lutSession = null;
+    return bc_json({ success: true, restored: restored });
+  } catch (e) {
+    bc_lutSession = null;
+    return bc_error(e);
+  }
+}
+
+// Keep: the clips stay as they are and Undo forgets them.
+function bc_keepClipLut() {
+  bc_lutSession = null;
+  return bc_json({ success: true });
+}
+
+// Lumetri's property list on the target clip, to copy into a bug report when
+// setting LUTs doesn't work in a Premiere version.
+function bc_lumetriReport() {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return bc_json({ success: false, error: "Open a sequence first." });
+    var target = bc_lutTargets(seq);
+    var lum = null;
+    for (var i = 0; i < target.clips.length && !lum; i++) lum = bc_findLumetri(target.clips[i]);
+    if (!lum) return bc_json({ success: false, error: "The clip has no Lumetri Color." });
+    var lines = ["Premiere " + app.version + ", Lumetri " + lum.properties.numItems + " properties"];
+    for (var p = 0; p < lum.properties.numItems; p++) {
+      var v = "";
+      try {
+        v = lum.properties[p].getValue();
+        v = typeof v + " " + String(v).substr(0, 60);
+      } catch (e2) {
+        v = "(unreadable)";
+      }
+      lines.push(p + " " + lum.properties[p].displayName + ": " + v);
+    }
+    return bc_json({ success: true, report: lines.join("\n") });
   } catch (e) {
     return bc_error(e);
   }

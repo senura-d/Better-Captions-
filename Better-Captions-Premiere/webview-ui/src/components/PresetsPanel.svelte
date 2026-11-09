@@ -1,4 +1,8 @@
 <script lang="ts">
+  import Plus from "@lucide/svelte/icons/plus";
+  import Ellipsis from "@lucide/svelte/icons/ellipsis";
+  import SectionHeader from "./SectionHeader.svelte";
+  import Bookmark from "@lucide/svelte/icons/bookmark";
   import { onMount } from "svelte";
   import type { AnimationConfig, StyleConfig } from "../lib/types";
   import {
@@ -128,7 +132,7 @@
 </script>
 
 {#snippet card(preset: CaptionPreset)}
-  <div class="relative rounded-md border border-panel-border bg-surface-raised p-1.5 hover:border-accent transition-colors">
+  <div class="relative rounded border border-panel-border bg-surface-raised p-1.5 hover:border-accent transition-colors">
     <button onclick={() => apply(preset)} class="w-full border-none bg-transparent p-0 cursor-pointer text-left" title="Apply {preset.name}">
       <PresetThumb {preset} />
     </button>
@@ -149,12 +153,12 @@
           class="shrink-0 px-1 text-[14px] leading-none text-panel-secondary hover:text-panel-text bg-transparent border-none cursor-pointer"
           aria-label="Preset options"
         >
-          ⋯
+          <Ellipsis size={14} strokeWidth={1.75} />
         </button>
       {/if}
     </div>
     {#if menuFor === preset.id}
-      <div class="absolute z-20 right-1 top-full mt-1 w-[170px] rounded-md border border-panel-border bg-surface shadow-lg py-1">
+      <div class="absolute z-20 right-1 top-full mt-1 w-[170px] rounded border border-panel-border bg-surface shadow-lg py-1">
         {#if confirmDelete === preset.id}
           <div class="px-2 py-1 text-[12px] text-panel-text">Delete "{preset.name}"?</div>
           <div class="flex gap-1 px-2 pb-1">
@@ -182,15 +186,7 @@
 {/snippet}
 
 <div class="border-b border-panel-border">
-  <button
-    onclick={() => (isOpen = !isOpen)}
-    class="w-full px-3 py-2 flex items-center justify-between text-[12.5px] font-semibold text-panel-text bg-surface hover:bg-panel-hover-bg transition-colors cursor-pointer border-none"
-  >
-    <span>Presets</span>
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="transition-transform" class:rotate-180={isOpen}>
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  </button>
+  <SectionHeader title="Presets" icon={Bookmark} open={isOpen} onToggle={() => (isOpen = !isOpen)} />
 
   {#if isOpen}
     <div class="px-3 py-2.5 space-y-2.5">
@@ -212,9 +208,9 @@
         <div class="flex gap-1.5">
           <button
             onclick={() => (naming = "")}
-            class="flex-1 py-1.5 rounded text-[12px] font-semibold border-none cursor-pointer bg-accent hover:bg-accent-hover text-accent-ink"
+            class="btn-primary flex-1 py-1.5"
           >
-            + Save current look
+            <Plus size={14} strokeWidth={2} /> Save current look
           </button>
           <button onclick={importPresets} class="px-2.5 py-1.5 rounded text-[12px] border border-panel-border cursor-pointer bg-surface-raised text-panel-text hover:bg-panel-hover-bg">Import…</button>
           {#if userPresets.length}
@@ -251,7 +247,7 @@
       </div>
 
       {#if error}
-        <p class="text-[12px] text-red-400 break-words">{error}</p>
+        <p class="text-[12px] text-error break-words">{error}</p>
       {/if}
       {#if status}
         <p class="text-[12px] text-green-400 break-words">{status}</p>

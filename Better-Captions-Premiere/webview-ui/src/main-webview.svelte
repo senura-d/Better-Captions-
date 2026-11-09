@@ -6,6 +6,7 @@
   import { sessionManager } from "./lib/session/manager.svelte";
   import type { TranscriptJSON, SequenceInfo } from "./lib/types";
 
+  import Film from "@lucide/svelte/icons/film";
   import AppBar from "./components/AppBar.svelte";
   import Home, { type Tool } from "./components/Home.svelte";
   import LutPanel from "./components/LutPanel.svelte";
@@ -115,7 +116,7 @@
     <div class="flex-1 overflow-y-auto">
       <Home onOpen={(tool) => (view = tool)} {captionsStatus} {beatsStatus} {lutsStatus} fullTools={isCEP()} />
       {#if connectionError}
-        <p class="text-[12px] text-red-400 px-4 pb-4 break-words">{connectionError}</p>
+        <p class="text-[12px] text-error px-4 pb-4 break-words">{connectionError}</p>
       {/if}
     </div>
   {:else if view === "beats"}
@@ -208,16 +209,13 @@
     </div>
   {:else}
     <div class="flex-1 flex flex-col items-center justify-center p-6 text-center">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="text-panel-secondary mb-3 opacity-40">
-        <rect x="2" y="3" width="20" height="14" rx="2" />
-        <path d="M8 21h8M12 17v4" />
-      </svg>
-      <p class="font-display text-[15px] text-panel-text mb-1">No sequence open</p>
+      <Film size={36} strokeWidth={1.25} class="text-panel-tertiary mb-3" />
+      <p class="text-[13px] font-semibold text-panel-text mb-1">No sequence open</p>
       <p class="text-[12px] text-panel-secondary">
         Open or click into a sequence in Premiere Pro to caption it.
       </p>
       {#if connectionError}
-        <p class="text-[11px] text-red-400 mt-3 max-w-[320px] break-words">{connectionError}</p>
+        <p class="text-[11px] text-error mt-3 max-w-[320px] break-words">{connectionError}</p>
       {/if}
       <button
         onclick={refreshSequence}

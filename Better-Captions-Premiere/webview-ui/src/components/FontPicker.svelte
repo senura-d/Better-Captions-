@@ -73,7 +73,7 @@
   </button>
 
   {#if open}
-    <div class="absolute z-30 left-0 right-0 mt-1 rounded-md border border-panel-border bg-surface shadow-lg">
+    <div class="absolute z-30 left-0 right-0 mt-1 rounded border border-panel-border bg-surface shadow-lg">
       <input
         bind:this={searchEl}
         bind:value={query}
@@ -130,6 +130,6 @@
     </div>
   {/if}
   {#if error}
-    <p class="text-[11px] text-red-400 mt-1">{error}</p>
+    <p class="text-[11px] text-error mt-1">{error}</p>
   {/if}
 </div>
