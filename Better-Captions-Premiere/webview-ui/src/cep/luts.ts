@@ -175,3 +175,73 @@ export function readFrameFile(file: string): Uint8Array {
 }
 
 export const tempFramePath = () => path().join(dataDir("luts"), `program-frame-${Date.now()}.png`);
+
+// ---------- Premiere's Look menu ----------
+// Lumetri's Creative > Look menu lists the LUTs Premiere finds in its Creative
+// folders when it starts. A script can choose an entry in that menu but can't
+// load any other LUT file, so LUTs are added to the per-user Creative folder
+// (no admin rights needed) and show up after Premiere restarts.
+
+export function creativeFolders(): string[] {
+  const out: string[] = [];
+  const isWin = nodeRequire("os").platform() === "win32";
+  if (isWin) {
+    const programFiles = env().ProgramW6432 || env().ProgramFiles || "C:\Program Files";
+    for (const r of rootCandidates()) if (!r.custom && r.label === "Premiere Pro") out.push(path().join(r.path, "Creative"));
+    out.push(path().join(programFiles, "Adobe", "Common", "LUTs", "Creative"));
+  } else {
+    out.push("/Library/Application Support/Adobe/Common/LUTs/Creative");
+  }
+  out.push(userCreativeFolder());
+  return out;
+}
+
+export function userCreativeFolder() {
+  return nodeRequire("os").platform() === "win32"
+    ? path().join(env().APPDATA || "", "Adobe", "Common", "LUTs", "Creative")
+    : path().join(nodeRequire("os").homedir(), "Library/Application Support/Adobe/Common/LUTs/Creative");
+}
+
+const norm = (p: string) => p.split("\\").join("/").toLowerCase();
+
+// True when the file sits in one of Premiere's Creative folders.
+export function inCreativeFolder(file: string) {
+  const f = norm(file);
+  return creativeFolders().some((dir) => f.startsWith(norm(dir) + "/"));
+}
+
+// Every LUT in the Creative folders, sorted by name, the order Premiere's Look
+// menu most likely uses (a guess the panel checks against the picture).
+export function listCreativeLuts(): string[] {
+  const files: string[] = [];
+  const walk = (dir: string, depth: number) => {
+    if (depth > 4) return;
+    let entries: any[] = [];
+    try {
+      entries = fs().readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.name.startsWith(".") || e.name.startsWith("._")) continue;
+      const full = path().join(dir, e.name);
+      if (e.isDirectory()) walk(full, depth + 1);
+      else if (/\.(cube|look|itx|3dl|lut|csp)$/i.test(e.name)) files.push(full);
+    }
+  };
+  for (const d of creativeFolders()) walk(d, 0);
+  const base = (p: string) => path().basename(p).replace(/\.[^.]+$/, "").toLowerCase();
+  return files.sort((a, b) => base(a).localeCompare(base(b), undefined, { numeric: true }));
+}
+
+// Copies a LUT into the per-user Creative folder (once). Returns the copy's path.
+export function addToLookMenu(file: string): string {
+  const dir = userCreativeFolder();
+  fs().mkdirSync(dir, { recursive: true });
+  const dest = path().join(dir, path().basename(file));
+  if (!fs().existsSync(dest)) fs().copyFileSync(file, dest);
+  return dest;
+}
+
+export const sameLutFile = (a: string, b: string) =>
+  norm(a) === norm(b) || norm(path().basename(a)) === norm(path().basename(b));

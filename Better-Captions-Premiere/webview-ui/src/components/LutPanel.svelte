@@ -6,6 +6,7 @@
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Film from "@lucide/svelte/icons/film";
+  import Layers from "@lucide/svelte/icons/layers";
   import Check from "@lucide/svelte/icons/check";
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import Copy from "@lucide/svelte/icons/copy";
@@ -39,6 +40,7 @@
     fromSelection: boolean;
     underPlayhead: boolean;
     version: string;
+    canCreateAdjustment: boolean;
   }
 
   const THUMB_W = 192;
@@ -117,23 +119,14 @@
   let live = $state(readPref("bc-lut-live", "1") === "1");
   let target = $state<Target | null>(null);
   let targetError = $state<string | null>(null);
-  let onClip = $state<{ lut: LutFile; clips: number; checked: boolean } | null>(null);
+  let onClip = $state<{ lut: LutFile; clips: number; index: number; mode: "adjustment" | "clip" } | null>(null);
   let clipBusy = $state(false);
   let pending: LutFile | null = null;
-  // Which way of setting the LUT works in this Premiere version (see bc_writeLut):
-  // null = not found out yet, -1 = none does.
-  let strategy = $state<number | null>(null);
-  let unsupported = $derived(strategy === -1);
-
-  const strategyKey = () => `bc-lut-strategy-${target?.version ?? "unknown"}`;
-  function loadStrategy() {
-    const v = readPref(strategyKey(), "");
-    strategy = v === "" ? null : Number(v);
-  }
-  function saveStrategy(v: number | null) {
-    strategy = v;
-    writePref(strategyKey(), v === null ? null : String(v));
-  }
+  // Where the LUT goes: an adjustment layer over the clips, or the clips themselves.
+  let mode = $state<"adjustment" | "clip">(readPref("bc-lut-mode", "adjustment") === "clip" ? "clip" : "adjustment");
+  // Lumetri's Look menu for this session: how many entries, and the file each one is (when Premiere says).
+  let menu: { count: number; paths: string[] } | null = null;
+  let restartNeeded = $state(false);
 
   let targetLabel = $derived.by(() => {
     if (!target || !target.clips.length) return null;
@@ -169,7 +162,6 @@
     favorites = settings.favorites;
     customFolders = settings.folders;
     await refreshTarget();
-    loadStrategy();
     // Follow the timeline selection while the panel is open.
     poll = setInterval(() => {
       if (!clipBusy && !document.hidden) refreshTarget();
@@ -191,10 +183,8 @@
         targetError = res?.error ?? null;
         return;
       }
-      const versionChanged = target?.version !== res.version;
       target = res;
       targetError = null;
-      if (versionChanged) loadStrategy();
     } catch (e: any) {
       target = null;
       targetError = e?.message || String(e);
@@ -394,11 +384,17 @@
     if (on && selected && !onClip) putOnClip(selected);
   }
 
-  // The Program monitor frame, small, for checking whether the LUT took.
+  function setMode(next: "adjustment" | "clip") {
+    if (onClip || clipBusy) return;
+    mode = next;
+    writePref("bc-lut-mode", next);
+  }
+
+  // The Program monitor frame, small, for finding a LUT in the Look menu.
   async function programPixels() {
     const res = await hostApi.grabFrame("program");
     if (!res?.success) throw new Error(res?.error || "Couldn't read the Program monitor.");
-    return drawToImageData(await decodePng(res.png), 160, 90).data;
+    return drawToImageData(await decodePng(res.png), 96, 54).data;
   }
 
   function meanDiff(a: Uint8ClampedArray, b: Uint8ClampedArray) {
@@ -407,15 +403,83 @@
     return sum / ((a.length / 4) * 3);
   }
 
-  // true: the Program monitor now looks like the frame with this LUT applied.
-  // null: this LUT hardly changes this frame, so it can't be told.
-  function lutTook(before: Uint8ClampedArray, after: Uint8ClampedArray, lut: Lut): boolean | null {
+  // Which Look menu entry is this LUT? Remembered per Premiere version and menu size.
+  const cacheKey = () => `bc-look-index-${target?.version ?? "?"}-${menu?.count ?? 0}`;
+  function cachedIndex(lut: LutFile): number | undefined {
+    try {
+      return JSON.parse(readPref(cacheKey(), "{}"))[lut.path.toLowerCase()];
+    } catch {
+      return undefined;
+    }
+  }
+  function rememberIndex(lut: LutFile, index: number) {
+    let map: Record<string, number> = {};
+    try {
+      map = JSON.parse(readPref(cacheKey(), "{}"));
+    } catch {}
+    map[lut.path.toLowerCase()] = index;
+    writePref(cacheKey(), JSON.stringify(map));
+  }
+
+  // Returns the Look menu index for `lut`, or null when Premiere's menu doesn't have it.
+  async function findLookIndex(lut: LutFile): Promise<number | null> {
+    if (!menu) {
+      const m = await hostApi.lutLookMenu();
+      if (!m?.success) throw new Error(m?.error || "Couldn't read Lumetri's Look menu.");
+      menu = { count: m.count, paths: m.paths };
+    }
+    const cached = cachedIndex(lut);
+    if (cached !== undefined && cached <= menu.count) return cached;
+
+    // Some Premiere versions say which file each entry is.
+    if (menu.paths.some((p) => p)) {
+      for (let i = 0; i < menu.paths.length; i++) {
+        for (const p of menu.paths[i].split("|")) {
+          if (p && hostApi.sameLutFile(p, lut.path)) {
+            rememberIndex(lut, i + 1);
+            return i + 1;
+          }
+        }
+      }
+      return null;
+    }
+
+    // Otherwise: guess its place from the Creative folders (sorted by name) and
+    // check the guess against the Program monitor, looking further out if needed.
+    const creative: string[] = await hostApi.listCreativeLuts();
+    const at = creative.findIndex((f) => hostApi.sameLutFile(f, lut.path));
+    if (at < 0) return null;
+    const guess = Math.min(menu.count, at + 1);
+    if (!target?.underPlayhead) {
+      throw new Error("Move the playhead over the clip once, so the panel can find this LUT in Premiere's Look menu.");
+    }
+    const data = await getLut(lut.path);
+    await hostApi.lutSetLook(0, 100);
+    const before = await programPixels();
     const expected = new Uint8ClampedArray(before);
-    applyLut(expected, lut, 1);
-    const lutEffect = meanDiff(before, expected);
-    if (lutEffect < 1.5) return null;
-    const changed = meanDiff(before, after);
-    return changed > lutEffect * 0.3 && meanDiff(after, expected) < changed;
+    applyLut(expected, data, 1);
+    const effect = meanDiff(before, expected);
+    if (effect < 1.5) {
+      // This LUT barely changes this frame, so the picture can't confirm it: use the guess.
+      return guess;
+    }
+    const order: number[] = [guess];
+    for (let d = 1; order.length < Math.min(menu.count, 80); d++) {
+      if (guess + d <= menu.count) order.push(guess + d);
+      if (guess - d >= 1) order.push(guess - d);
+      if (guess + d > menu.count && guess - d < 1) break;
+    }
+    for (let k = 0; k < order.length; k++) {
+      status = `Finding "${lut.name}" in Premiere's Look menu (${k + 1} of ${order.length})…`;
+      await hostApi.lutSetLook(order[k], 100);
+      if (meanDiff(await programPixels(), expected) < effect * 0.35) {
+        rememberIndex(lut, order[k]);
+        status = null;
+        return order[k];
+      }
+    }
+    status = null;
+    throw new Error(`Couldn't find "${lut.name}" in Premiere's Look menu. Choose it in Lumetri Color > Creative > Look.`);
   }
 
   async function putOnClip(lut: LutFile) {
@@ -428,9 +492,22 @@
     try {
       await refreshTarget();
       if (!target?.clips.length) throw new Error(targetError || "Select a video clip in the timeline, or move the playhead over one.");
-      if (strategy === null && target.underPlayhead) await findStrategy(lut);
-      else await setLut(lut, strategy === null || strategy < 0 ? 0 : strategy, strategy !== null && strategy >= 0);
-      if (unsupported) showManualSteps(lut);
+      const begun = await hostApi.lutBegin(mode);
+      if (!begun?.success) throw new Error(begun?.error || "Couldn't start.");
+      const index = await findLookIndex(lut);
+      if (index === null) {
+        // Not in Premiere's Look menu yet: add it, and it's there after a restart.
+        if (!begun.reused) await hostApi.lutUndo();
+        if (!begun.reused) onClip = null;
+        await hostApi.addToLookMenu(lut.path);
+        restartNeeded = true;
+        status = `"${lut.name}" has been added to Premiere's Look menu. Restart Premiere once; after that, clicking it puts it on ${mode === "adjustment" ? "an adjustment layer" : "the clip"} automatically.`;
+        return;
+      }
+      const res = await hostApi.lutSetLook(index, intensity);
+      if (!res?.success) throw new Error(res?.error || "Couldn't choose the LUT.");
+      onClip = { lut, clips: begun.clips, index, mode };
+      if (begun.track) status = mode === "adjustment" && !begun.reused ? `Adjustment layer added on V${begun.track}.` : null;
     } catch (e: any) {
       error = e?.message || String(e);
     } finally {
@@ -444,68 +521,39 @@
     }
   }
 
-  async function setLut(lut: LutFile, way: number, checked: boolean) {
-    const res = await hostApi.setClipLut(lut.path, intensity, way);
-    if (!res?.success) throw new Error(res?.error || "Couldn't set the LUT on the clip.");
-    onClip = { lut, clips: res.clips, checked };
-    return res;
-  }
-
-  // Tries each way of setting the LUT and keeps the one that changes the
-  // Program monitor the way the LUT should. Needs the clip under the playhead.
-  async function findStrategy(lut: LutFile) {
-    status = "Checking how this Premiere version takes LUTs…";
-    const data = await getLut(lut.path);
-    const before = await programPixels();
-    for (const way of [0, 1, 2, 3]) {
-      const res = await hostApi.setClipLut(lut.path, 100, way);
-      if (!res?.success) throw new Error(res?.error || "Couldn't set the LUT on the clip.");
-      const took = lutTook(before, await programPixels(), data);
-      if (took === null) {
-        // Can't tell on this frame: leave the first way in place and check again next time.
-        onClip = { lut, clips: res.clips, checked: false };
-        if (intensity !== 100) await setLut(lut, way, false);
-        status = null;
-        return;
-      }
-      if (took) {
-        saveStrategy(way);
-        onClip = { lut, clips: res.clips, checked: true };
-        if (intensity !== 100) await setLut(lut, way, true);
-        status = null;
-        return;
-      }
-      await hostApi.restoreClipLut();
-    }
-    saveStrategy(-1);
-    onClip = null;
-    status = null;
-  }
-
-  // Premiere won't take the LUT from a script: Lumetri Color is on the clip,
-  // and the path is copied for Creative > Look > Browse.
-  function showManualSteps(lut: LutFile) {
-    const copied = copyText(lut.path);
-    status =
-      `Lumetri Color is on the clip, but this Premiere version doesn't let extensions choose its LUT. ` +
-      `In Lumetri Color > Creative > Look, choose Browse and paste the path${copied ? " (copied)" : ""}.`;
-  }
-
   async function applyNow() {
     if (selected) await putOnClip(selected);
   }
 
   async function keep() {
-    await hostApi.keepClipLut();
-    status = onClip ? `Kept "${onClip.lut.name}" on ${onClip.clips === 1 ? "the clip" : `${onClip.clips} clips`}.` : null;
+    await hostApi.lutKeep();
+    status = onClip ? `Kept "${onClip.lut.name}"${onClip.mode === "adjustment" ? " on the adjustment layer" : ""}.` : null;
     onClip = null;
+    menu = null;
   }
 
   async function undo() {
-    const res = await hostApi.restoreClipLut();
+    const res = await hostApi.lutUndo();
+    const wasAdjustment = onClip?.mode === "adjustment";
     onClip = null;
-    status = res?.success ? "Clip put back as it was." : null;
+    menu = null;
+    status = res?.success ? (wasAdjustment ? "Adjustment layer removed." : "Clip put back as it was.") : null;
     if (!res?.success) error = res?.error || "Couldn't undo.";
+  }
+
+  async function addFavoritesToLookMenu() {
+    let added = 0;
+    for (const f of favorites) {
+      if (await hostApi.inCreativeFolder(f)) continue;
+      try {
+        await hostApi.addToLookMenu(f);
+        added++;
+      } catch {}
+    }
+    restartNeeded = restartNeeded || added > 0;
+    status = added
+      ? `Added ${added} favourite${added === 1 ? "" : "s"} to Premiere's Look menu. Restart Premiere once to use them.`
+      : "Your favourites are already in Premiere's Look menu.";
   }
 
   async function copyDiagnostics() {
@@ -522,10 +570,10 @@
   $effect(() => {
     const value = intensity;
     clearTimeout(intensityTimer);
-    if (!onClip || strategy === null || strategy < 0) return;
-    const lut = onClip.lut;
+    if (!onClip) return;
+    const index = onClip.index;
     intensityTimer = setTimeout(() => {
-      if (!clipBusy && value === intensity) setLut(lut, strategy!, true).catch((e) => (error = e?.message || String(e)));
+      if (!clipBusy && value === intensity) hostApi.lutSetLook(index, value).catch((e: any) => (error = e?.message || String(e)));
     }, 300);
   });
 
@@ -602,11 +650,22 @@
         <span class="clip-sub">Select a clip, or move the playhead over one</span>
       {/if}
     </div>
-    <label class="switch" title="Put the LUT you pick on the clip right away">
+    <label class="switch" title="Put the LUT you pick on the timeline right away">
       <input type="checkbox" checked={live} onchange={(e) => setLive(e.currentTarget.checked)} />
       <span class="track"><span class="knob"></span></span>
-      <span class="switch-label">Live on clip</span>
+      <span class="switch-label">Live</span>
     </label>
+  </section>
+  <section class="mode-row">
+    <span class="mode-label">Apply on</span>
+    <div class="seg" role="group" aria-label="Apply the LUT on">
+      <button class:on={mode === "adjustment"} onclick={() => setMode("adjustment")} disabled={!!onClip || clipBusy} title="A new adjustment layer above the clips, so the clips themselves stay untouched">
+        <Layers size={12} strokeWidth={1.75} /> Adjustment layer
+      </button>
+      <button class:on={mode === "clip"} onclick={() => setMode("clip")} disabled={!!onClip || clipBusy} title="Lumetri Color on the clips themselves">
+        <Film size={12} strokeWidth={1.75} /> Clip
+      </button>
+    </div>
   </section>
 
   <!-- Library -->
@@ -715,9 +774,9 @@
         <span class="name" title={selected.path}>{selected.name}</span>
         <span class="sub">
           {#if clipBusy}
-            Putting it on the clip…
+            {mode === "adjustment" ? "Putting it on an adjustment layer…" : "Putting it on the clip…"}
           {:else if onClip}
-            On {onClip.clips === 1 ? "the clip" : `${onClip.clips} clips`}{onClip.checked ? ", showing in the Program monitor" : ""}
+            {onClip.mode === "adjustment" ? "On an adjustment layer over" : "On"} {onClip.clips === 1 ? "the clip" : `${onClip.clips} clips`}, showing in the Program monitor
           {:else}
             {folderLabel(selected.folder)}
           {/if}
@@ -728,27 +787,29 @@
       {/if}
     </div>
 
-    {#if onClip && !unsupported}
+    {#if onClip}
       <div class="actions">
         <button class="btn-primary flex-1" onclick={keep} disabled={clipBusy}><Check size={14} strokeWidth={2} /> Keep</button>
         <button class="btn-quiet flex-1 py-[0.45rem]" onclick={undo} disabled={clipBusy}><Undo2 size={14} strokeWidth={1.75} /> Undo</button>
       </div>
     {:else}
       <button class="btn-primary w-full" onclick={applyNow} disabled={clipBusy || !targetLabel}>
-        {targetLabel ? "Put on clip" : "Select a clip first"}
+        {targetLabel ? (mode === "adjustment" ? "Add on adjustment layer" : "Put on clip") : "Select a clip first"}
       </button>
     {/if}
 
     <div class="links">
       <button class="link" onclick={() => (copyText(selected!.path) ? (status = "Path copied.") : (error = "Couldn't copy the path."))}><Copy size={12} strokeWidth={1.75} /> Copy path</button>
       <button class="link" onclick={() => hostApi.revealInFolder(selected!.path)}><FolderOpen size={12} strokeWidth={1.75} /> Show in folder</button>
-      {#if unsupported}
+      {#if favorites.length}
+        <button class="link" onclick={addFavoritesToLookMenu} title="Copies your favourite LUTs into Premiere's Creative LUT folder">Add favourites to Look menu</button>
+      {/if}
+      {#if error}
         <button class="link" onclick={copyDiagnostics}>Copy Lumetri details</button>
-        <button class="link" onclick={() => saveStrategy(null)}>Check again</button>
       {/if}
     </div>
     {#if status}
-      <p class="msg" class:warn={unsupported}>{status}</p>
+      <p class="msg" class:warn={restartNeeded}>{status}</p>
     {/if}
   </footer>
 {/if}
@@ -898,7 +959,6 @@
     align-items: center;
     gap: 10px;
     border-top: 1px solid var(--color-panel-border);
-    border-bottom: 1px solid var(--color-panel-border);
     background: var(--color-surface);
     color: var(--color-panel-secondary);
   }
@@ -928,6 +988,26 @@
     text-overflow: ellipsis;
   }
 
+  .mode-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--color-panel-border);
+  }
+  .mode-label {
+    color: var(--color-panel-secondary);
+    font-size: 12px;
+  }
+  .mode-row .seg button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .mode-row .seg button:disabled {
+    cursor: not-allowed;
+  }
   .switch {
     position: relative;
     display: inline-flex;

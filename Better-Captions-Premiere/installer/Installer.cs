@@ -584,25 +584,132 @@ namespace BetterCaptionsSetup
         }
     }
 
-    #region Custom Modern UI Controls
+    #region UI controls
+
+    // Same tokens as the panel (webview-ui/src/app.css): Premiere's greys and
+    // one accent, Premiere's selection blue.
+    static class Theme
+    {
+        public static readonly Color Bg = Color.FromArgb(35, 35, 35);
+        public static readonly Color Surface = Color.FromArgb(42, 42, 42);
+        public static readonly Color Raised = Color.FromArgb(51, 51, 51);
+        public static readonly Color Overlay = Color.FromArgb(62, 62, 62);
+        public static readonly Color Border = Color.FromArgb(58, 58, 58);
+        public static readonly Color Text = Color.FromArgb(227, 227, 227);
+        public static readonly Color Secondary = Color.FromArgb(163, 163, 163);
+        public static readonly Color Tertiary = Color.FromArgb(124, 124, 124);
+        public static readonly Color Accent = Color.FromArgb(38, 128, 235);
+        public static readonly Color AccentHover = Color.FromArgb(55, 142, 240);
+        public static readonly Color Success = Color.FromArgb(51, 171, 132);
+        public static readonly Color Warning = Color.FromArgb(230, 134, 25);
+        public static readonly Color Error = Color.FromArgb(240, 86, 75);
+
+        public static Font Body(float size) { return new Font("Segoe UI", size, FontStyle.Regular); }
+        public static Font Strong(float size) { return new Font("Segoe UI Semibold", size, FontStyle.Regular); }
+    }
 
     public static class GraphicsUtils
     {
         public static GraphicsPath CreateRoundedRectangle(Rectangle bounds, int radius)
         {
             var path = new GraphicsPath();
-            if (radius <= 0)
+            int d = radius * 2;
+            if (d <= 0)
             {
                 path.AddRectangle(bounds);
                 return path;
             }
-            int d = radius * 2;
             path.AddArc(bounds.X, bounds.Y, d, d, 180, 90);
             path.AddArc(bounds.Right - d, bounds.Y, d, d, 270, 90);
             path.AddArc(bounds.Right - d, bounds.Bottom - d, d, d, 0, 90);
             path.AddArc(bounds.X, bounds.Bottom - d, d, d, 90, 90);
             path.CloseFigure();
             return path;
+        }
+
+        public static Pen IconPen(Color color, float width)
+        {
+            var pen = new Pen(color, width);
+            pen.StartCap = LineCap.Round;
+            pen.EndCap = LineCap.Round;
+            pen.LineJoin = LineJoin.Round;
+            return pen;
+        }
+    }
+
+    // Line icons drawn in the style of the Lucide set the panel uses
+    // (24-unit grid, round caps), scaled to the control.
+    public enum IconKind { Captions, CircleCheck, CircleDashed, Alert, Download, Film, Panel, Waveform }
+
+    public class LineIcon : Control
+    {
+        IconKind kind;
+        public IconKind Kind { get { return kind; } set { kind = value; Invalidate(); } }
+
+        public LineIcon()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
+                     ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor | ControlStyles.ResizeRedraw, true);
+            BackColor = Color.Transparent;
+            Size = new Size(18, 18);
+        }
+
+        protected override void OnForeColorChanged(EventArgs e)
+        {
+            base.OnForeColorChanged(e);
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            float s = Math.Min(Width, Height) / 24f;
+            g.ScaleTransform(s, s);
+            using (var pen = GraphicsUtils.IconPen(ForeColor, 1.75f))
+            {
+                switch (kind)
+                {
+                    case IconKind.Captions:
+                        g.DrawPath(pen, GraphicsUtils.CreateRoundedRectangle(new Rectangle(3, 5, 18, 14), 2));
+                        g.DrawLine(pen, 7, 15, 11, 15);
+                        g.DrawLine(pen, 14, 15, 17, 15);
+                        g.DrawLine(pen, 7, 11, 9, 11);
+                        g.DrawLine(pen, 12, 11, 17, 11);
+                        break;
+                    case IconKind.CircleCheck:
+                        g.DrawEllipse(pen, 2, 2, 20, 20);
+                        g.DrawLines(pen, new[] { new PointF(8, 12), new PointF(11, 15), new PointF(16, 9) });
+                        break;
+                    case IconKind.CircleDashed:
+                        pen.DashPattern = new[] { 1.6f, 2.2f };
+                        g.DrawEllipse(pen, 2, 2, 20, 20);
+                        break;
+                    case IconKind.Alert:
+                        g.DrawEllipse(pen, 2, 2, 20, 20);
+                        g.DrawLine(pen, 12, 7.5f, 12, 13);
+                        g.DrawLine(pen, 12, 16.5f, 12.01f, 16.5f);
+                        break;
+                    case IconKind.Download:
+                        g.DrawLine(pen, 12, 3, 12, 15);
+                        g.DrawLines(pen, new[] { new PointF(7, 10), new PointF(12, 15), new PointF(17, 10) });
+                        g.DrawLines(pen, new[] { new PointF(3, 15), new PointF(3, 19), new PointF(21, 19), new PointF(21, 15) });
+                        break;
+                    case IconKind.Film:
+                        g.DrawPath(pen, GraphicsUtils.CreateRoundedRectangle(new Rectangle(3, 3, 18, 18), 2));
+                        g.DrawLine(pen, 7, 3, 7, 21);
+                        g.DrawLine(pen, 17, 3, 17, 21);
+                        g.DrawLine(pen, 3, 12, 21, 12);
+                        break;
+                    case IconKind.Panel:
+                        g.DrawPath(pen, GraphicsUtils.CreateRoundedRectangle(new Rectangle(3, 3, 18, 18), 2));
+                        g.DrawLine(pen, 15, 3, 15, 21);
+                        break;
+                    case IconKind.Waveform:
+                        g.DrawLines(pen, new[] { new PointF(2, 13), new PointF(4, 13), new PointF(7, 5), new PointF(11, 19), new PointF(14, 9), new PointF(17, 15), new PointF(19, 12), new PointF(22, 12) });
+                        break;
+                }
+            }
         }
     }
 
@@ -619,133 +726,60 @@ namespace BetterCaptionsSetup
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
                      ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-            CornerRadius = 8;
+            CornerRadius = 4;
             Cursor = Cursors.Hand;
-            Font = new Font("Segoe UI Semibold", 9.5f);
-            Size = new Size(130, 38);
+            Font = Theme.Strong(9f);
+            Size = new Size(120, 32);
         }
 
-        protected override void OnMouseEnter(EventArgs e)
-        {
-            isHovered = true;
-            Invalidate();
-            base.OnMouseEnter(e);
-        }
-
-        protected override void OnMouseLeave(EventArgs e)
-        {
-            isHovered = false;
-            isPressed = false;
-            Invalidate();
-            base.OnMouseLeave(e);
-        }
-
-        protected override void OnMouseDown(MouseEventArgs mevent)
-        {
-            isPressed = true;
-            Invalidate();
-            base.OnMouseDown(mevent);
-        }
-
-        protected override void OnMouseUp(MouseEventArgs mevent)
-        {
-            isPressed = false;
-            Invalidate();
-            base.OnMouseUp(mevent);
-        }
+        protected override void OnMouseEnter(EventArgs e) { isHovered = true; Invalidate(); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { isHovered = false; isPressed = false; Invalidate(); base.OnMouseLeave(e); }
+        protected override void OnMouseDown(MouseEventArgs e) { isPressed = true; Invalidate(); base.OnMouseDown(e); }
+        protected override void OnMouseUp(MouseEventArgs e) { isPressed = false; Invalidate(); base.OnMouseUp(e); }
+        protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); Invalidate(); }
 
         protected override void OnPaint(PaintEventArgs pevent)
         {
             var g = pevent.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+            g.Clear(Parent != null ? Parent.BackColor : Theme.Surface);
 
             var rect = new Rectangle(0, 0, Width - 1, Height - 1);
+            Color fill, border, text;
+            if (IsPrimary)
+            {
+                fill = isPressed ? Theme.Accent : (isHovered ? Theme.AccentHover : Theme.Accent);
+                border = fill;
+                text = Color.White;
+            }
+            else
+            {
+                fill = isPressed ? Theme.Overlay : (isHovered ? Color.FromArgb(61, 61, 61) : Theme.Raised);
+                border = Theme.Border;
+                text = IsDestructive && isHovered ? Theme.Error : Theme.Text;
+            }
+            if (!Enabled)
+            {
+                fill = Theme.Raised;
+                border = Theme.Border;
+                text = Theme.Tertiary;
+            }
+
             using (var path = GraphicsUtils.CreateRoundedRectangle(rect, CornerRadius))
             {
-                Color bgTop, bgBottom, borderColor, textColor;
+                using (var brush = new SolidBrush(fill)) g.FillPath(brush, path);
+                using (var pen = new Pen(border, 1f)) g.DrawPath(pen, path);
+            }
+            TextRenderer.DrawText(g, Text, Font, rect, text,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
 
-                if (!Enabled)
-                {
-                    bgTop = bgBottom = Color.FromArgb(32, 34, 44);
-                    borderColor = Color.FromArgb(48, 51, 65);
-                    textColor = Color.FromArgb(100, 105, 125);
-                }
-                else if (IsPrimary)
-                {
-                    if (isPressed)
-                    {
-                        bgTop = Color.FromArgb(109, 40, 217);
-                        bgBottom = Color.FromArgb(91, 33, 182);
-                    }
-                    else if (isHovered)
-                    {
-                        bgTop = Color.FromArgb(147, 83, 255);
-                        bgBottom = Color.FromArgb(124, 58, 237);
-                    }
-                    else
-                    {
-                        bgTop = Color.FromArgb(139, 92, 246);
-                        bgBottom = Color.FromArgb(109, 40, 217);
-                    }
-                    borderColor = Color.FromArgb(167, 139, 250);
-                    textColor = Color.White;
-                }
-                else if (IsDestructive)
-                {
-                    if (isPressed)
-                    {
-                        bgTop = bgBottom = Color.FromArgb(153, 27, 27);
-                    }
-                    else if (isHovered)
-                    {
-                        bgTop = bgBottom = Color.FromArgb(69, 26, 33);
-                    }
-                    else
-                    {
-                        bgTop = bgBottom = Color.FromArgb(24, 25, 33);
-                    }
-                    borderColor = isHovered ? Color.FromArgb(239, 68, 68) : Color.FromArgb(60, 40, 50);
-                    textColor = isHovered ? Color.FromArgb(248, 113, 113) : Color.FromArgb(180, 140, 150);
-                }
-                else
-                {
-                    // Standard secondary dark button
-                    if (isPressed)
-                    {
-                        bgTop = bgBottom = Color.FromArgb(45, 48, 62);
-                    }
-                    else if (isHovered)
-                    {
-                        bgTop = bgBottom = Color.FromArgb(40, 43, 56);
-                    }
-                    else
-                    {
-                        bgTop = bgBottom = Color.FromArgb(28, 30, 40);
-                    }
-                    borderColor = isHovered ? Color.FromArgb(139, 92, 246) : Color.FromArgb(50, 54, 70);
-                    textColor = isHovered ? Color.White : Color.FromArgb(215, 220, 235);
-                }
-
-                using (var brush = new LinearGradientBrush(rect, bgTop, bgBottom, LinearGradientMode.Vertical))
-                {
-                    g.FillPath(brush, path);
-                }
-                using (var pen = new Pen(borderColor, 1f))
-                {
+            if (Focused && ShowFocusCues)
+            {
+                var focus = new Rectangle(1, 1, Width - 3, Height - 3);
+                using (var path = GraphicsUtils.CreateRoundedRectangle(focus, CornerRadius))
+                using (var pen = new Pen(IsPrimary ? Color.White : Theme.Accent, 1.5f))
                     g.DrawPath(pen, path);
-                }
-
-                // Text
-                var sf = new StringFormat
-                {
-                    Alignment = StringAlignment.Center,
-                    LineAlignment = StringAlignment.Center
-                };
-                using (var textBrush = new SolidBrush(textColor))
-                {
-                    g.DrawString(Text, Font, textBrush, rect, sf);
-                }
             }
         }
     }
@@ -756,23 +790,18 @@ namespace BetterCaptionsSetup
         public int Value
         {
             get { return val; }
-            set
-            {
-                val = Math.Max(0, Math.Min(100, value));
-                Invalidate();
-            }
+            set { val = Math.Max(0, Math.Min(100, value)); Invalidate(); }
         }
 
-        public bool IsMarquee { get; set; }
-        int marqueeOffset = 0;
+        public bool IsMarquee { get; private set; }
+        int marqueeOffset;
         System.Windows.Forms.Timer marqueeTimer;
 
         public ModernProgressBar()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
                      ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-            Height = 12;
-            DoubleBuffered = true;
+            Height = 4;
         }
 
         public void StartMarquee()
@@ -780,10 +809,10 @@ namespace BetterCaptionsSetup
             IsMarquee = true;
             if (marqueeTimer == null)
             {
-                marqueeTimer = new System.Windows.Forms.Timer { Interval = 25 };
+                marqueeTimer = new System.Windows.Forms.Timer { Interval = 30 };
                 marqueeTimer.Tick += delegate
                 {
-                    marqueeOffset = (marqueeOffset + 4) % (Width + 80);
+                    marqueeOffset = (marqueeOffset + 5) % (Width + Width / 3);
                     Invalidate();
                 };
             }
@@ -800,58 +829,21 @@ namespace BetterCaptionsSetup
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-
-            var trackRect = new Rectangle(0, 0, Width - 1, Height - 1);
-            int radius = Height / 2;
-
-            // Track background
-            using (var path = GraphicsUtils.CreateRoundedRectangle(trackRect, radius))
+            g.Clear(Parent != null ? Parent.BackColor : Theme.Bg);
+            using (var track = new SolidBrush(Theme.Raised)) g.FillRectangle(track, 0, 0, Width, Height);
+            using (var fill = new SolidBrush(Theme.Accent))
             {
-                using (var brush = new SolidBrush(Color.FromArgb(28, 30, 42)))
+                if (IsMarquee)
                 {
-                    g.FillPath(brush, path);
+                    int bar = Math.Max(40, Width / 3);
+                    int x = marqueeOffset - bar;
+                    int left = Math.Max(0, x);
+                    int right = Math.Min(Width, x + bar);
+                    if (right > left) g.FillRectangle(fill, left, 0, right - left, Height);
                 }
-                using (var pen = new Pen(Color.FromArgb(45, 48, 64), 1f))
+                else if (Value > 0)
                 {
-                    g.DrawPath(pen, path);
-                }
-            }
-
-            // Fill
-            if (IsMarquee)
-            {
-                int barWidth = Math.Max(40, Width / 3);
-                int x = marqueeOffset - barWidth;
-                var fillRect = new Rectangle(Math.Max(0, x), 1, barWidth, Height - 2);
-                if (fillRect.Width > 0 && fillRect.Right <= Width)
-                {
-                    using (var path = GraphicsUtils.CreateRoundedRectangle(fillRect, radius - 1))
-                    using (var brush = new LinearGradientBrush(fillRect, Color.FromArgb(124, 92, 255), Color.FromArgb(236, 72, 153), LinearGradientMode.Horizontal))
-                    {
-                        g.FillPath(brush, path);
-                    }
-                }
-            }
-            else if (Value > 0)
-            {
-                int fillWidth = (int)((Width - 2) * (Value / 100.0));
-                if (fillWidth > radius * 2)
-                {
-                    var fillRect = new Rectangle(1, 1, fillWidth, Height - 2);
-                    using (var path = GraphicsUtils.CreateRoundedRectangle(fillRect, radius - 1))
-                    using (var brush = new LinearGradientBrush(fillRect, Color.FromArgb(124, 92, 255), Color.FromArgb(168, 85, 247), LinearGradientMode.Horizontal))
-                    {
-                        g.FillPath(brush, path);
-                    }
-                }
-                else if (fillWidth > 0)
-                {
-                    var fillRect = new Rectangle(1, 1, fillWidth, Height - 2);
-                    using (var brush = new SolidBrush(Color.FromArgb(124, 92, 255)))
-                    {
-                        g.FillRectangle(brush, fillRect);
-                    }
+                    g.FillRectangle(fill, 0, 0, (int)(Width * (Value / 100.0)), Height);
                 }
             }
         }
@@ -863,6 +855,50 @@ namespace BetterCaptionsSetup
         }
     }
 
+    // One line of the status list: icon, title and a detail line.
+    class StatusRow : Panel
+    {
+        public readonly LineIcon Icon;
+        public readonly Label Title;
+        public readonly Label Detail;
+        public bool DrawDivider;
+
+        public StatusRow(IconKind kind, string title, int width)
+        {
+            Size = new Size(width, 48);
+            BackColor = Theme.Surface;
+            Icon = new LineIcon { Kind = kind, Location = new Point(14, 15), Size = new Size(18, 18), ForeColor = Theme.Secondary };
+            Title = new Label
+            {
+                Text = title, Location = new Point(44, 7), Size = new Size(width - 58, 18),
+                ForeColor = Theme.Text, Font = Theme.Strong(9f), UseMnemonic = false, BackColor = Color.Transparent,
+            };
+            Detail = new Label
+            {
+                Location = new Point(44, 25), Size = new Size(width - 58, 18),
+                ForeColor = Theme.Secondary, Font = Theme.Body(8.75f), UseMnemonic = false, BackColor = Color.Transparent,
+                AutoEllipsis = true,
+            };
+            Controls.Add(Icon);
+            Controls.Add(Title);
+            Controls.Add(Detail);
+        }
+
+        public void Set(IconKind kind, Color iconColor, string detail)
+        {
+            Icon.Kind = kind;
+            Icon.ForeColor = iconColor;
+            Detail.Text = detail;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            if (!DrawDivider) return;
+            using (var pen = new Pen(Theme.Border, 1f)) e.Graphics.DrawLine(pen, 0, 0, Width, 0);
+        }
+    }
+
     #endregion
 
     class InstallerForm : Form
@@ -870,25 +906,13 @@ namespace BetterCaptionsSetup
         readonly ExtensionInstaller installer;
         readonly EngineDownloader engine;
 
-        readonly Panel headerPanel;
-        readonly Panel cardPanel;
-        readonly Panel bottomBar;
+        readonly StatusRow premiereRow;
+        readonly StatusRow panelRow;
+        readonly StatusRow engineRow;
 
-        readonly Label titleLabel;
-        readonly Label subtitleLabel;
-        readonly Label versionBadge;
-
-        readonly Label premiereStatusIcon;
-        readonly Label premiereStatusText;
-        readonly Label extensionStatusIcon;
-        readonly Label extensionStatusText;
-        readonly Label engineStatusIcon;
-        readonly Label engineStatusText;
-        readonly Label pathInfoLabel;
-
-        readonly Label progressStatusLabel;
-        readonly Label progressPercentLabel;
-        readonly ModernProgressBar modernProgress;
+        readonly Label statusLabel;
+        readonly Label percentLabel;
+        readonly ModernProgressBar progress;
 
         readonly ModernButton installButton;
         readonly ModernButton uninstallButton;
@@ -897,267 +921,104 @@ namespace BetterCaptionsSetup
 
         bool downloading;
 
-        static readonly Color BgDark = Color.FromArgb(18, 19, 26);
-        static readonly Color CardBg = Color.FromArgb(26, 28, 38);
-        static readonly Color CardBorder = Color.FromArgb(44, 47, 63);
-        static readonly Color AccentPurple = Color.FromArgb(124, 92, 255);
-        static readonly Color TextPrimary = Color.FromArgb(248, 250, 252);
-        static readonly Color TextMuted = Color.FromArgb(148, 163, 184);
-        static readonly Color GreenSuccess = Color.FromArgb(52, 211, 153);
-        static readonly Color AmberWarning = Color.FromArgb(251, 191, 36);
+        const int Pad = 20;
+        const int W = 520;
 
         public InstallerForm(ExtensionInstaller installer, bool startWithUninstall)
         {
             this.installer = installer;
             engine = new EngineDownloader(installer.Options.EngineDir);
 
-            // Window styling
             Text = "Better Captions Setup";
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(580, 480);
-            Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
-            BackColor = BgDark;
-            ForeColor = TextPrimary;
+            ClientSize = new Size(W, 404);
+            Font = Theme.Body(9f);
+            BackColor = Theme.Bg;
+            ForeColor = Theme.Text;
             DoubleBuffered = true;
-
             try { Icon = Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location); } catch { }
 
-            // 1. HEADER BANNER
-            headerPanel = new Panel
+            // Header: the panel's captions glyph, the name and what it is.
+            Controls.Add(new LineIcon { Kind = IconKind.Captions, Location = new Point(Pad, 22), Size = new Size(28, 28), ForeColor = Theme.Text });
+            Controls.Add(new Label
             {
-                Dock = DockStyle.Top,
-                Height = 100,
-                BackColor = Color.FromArgb(22, 23, 33)
-            };
-            headerPanel.Paint += delegate(object s, PaintEventArgs pe)
+                Text = "Better Captions", Location = new Point(Pad + 40, 18), AutoSize = true,
+                ForeColor = Theme.Text, Font = Theme.Strong(12f), UseMnemonic = false,
+            });
+            Controls.Add(new Label
             {
+                Text = "Offline captions, beat markers and LUT preview for Premiere Pro. Version " + (installer.PackagedVersion ?? "?"),
+                Location = new Point(Pad + 41, 42), Size = new Size(W - Pad * 2 - 41, 18),
+                ForeColor = Theme.Secondary, Font = Theme.Body(8.75f), UseMnemonic = false,
+            });
+
+            // Status list.
+            int listW = W - Pad * 2;
+            var list = new Panel { Location = new Point(Pad, 78), Size = new Size(listW, 48 * 3 + 2), BackColor = Theme.Border };
+            premiereRow = new StatusRow(IconKind.Film, "Premiere Pro", listW - 2) { Location = new Point(1, 1) };
+            panelRow = new StatusRow(IconKind.Panel, "Better Captions panel", listW - 2) { Location = new Point(1, 49), DrawDivider = true };
+            engineRow = new StatusRow(IconKind.Waveform, "Offline speech engine", listW - 2) { Location = new Point(1, 97), DrawDivider = true };
+            list.Controls.Add(premiereRow);
+            list.Controls.Add(panelRow);
+            list.Controls.Add(engineRow);
+            list.Paint += delegate(object s, PaintEventArgs pe)
+            {
+                // Rounded 1px frame around the rows.
                 var g = pe.Graphics;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
-
-                // Subtle gradient glow in top right
-                using (var bgBrush = new LinearGradientBrush(headerPanel.ClientRectangle,
-                    Color.FromArgb(29, 28, 44), Color.FromArgb(20, 21, 30), LinearGradientMode.Vertical))
+                g.Clear(Theme.Bg);
+                using (var path = GraphicsUtils.CreateRoundedRectangle(new Rectangle(0, 0, list.Width - 1, list.Height - 1), 6))
                 {
-                    g.FillRectangle(bgBrush, headerPanel.ClientRectangle);
-                }
-
-                // Bottom divider line
-                using (var linePen = new Pen(Color.FromArgb(38, 41, 56), 1f))
-                {
-                    g.DrawLine(linePen, 0, headerPanel.Height - 1, headerPanel.Width, headerPanel.Height - 1);
-                }
-
-                // App Icon / Logo Box (Squircle)
-                var iconRect = new Rectangle(24, 18, 56, 56);
-                using (var path = GraphicsUtils.CreateRoundedRectangle(iconRect, 14))
-                {
-                    using (var iconBrush = new LinearGradientBrush(iconRect, Color.FromArgb(139, 92, 246), Color.FromArgb(99, 102, 241), LinearGradientMode.ForwardDiagonal))
-                    {
-                        g.FillPath(iconBrush, path);
-                    }
-                    using (var pen = new Pen(Color.FromArgb(167, 139, 250), 1f))
-                    {
-                        g.DrawPath(pen, path);
-                    }
-                }
-
-                // Subtitle / Caption Graphic bars inside squircle
-                using (var whiteBrush = new SolidBrush(Color.White))
-                {
-                    g.FillRectangle(whiteBrush, 36, 36, 32, 6);
-                    g.FillRectangle(whiteBrush, 42, 48, 20, 6);
+                    using (var brush = new SolidBrush(Theme.Surface)) g.FillPath(brush, path);
+                    using (var pen = new Pen(Theme.Border, 1f)) g.DrawPath(pen, path);
                 }
             };
+            Controls.Add(list);
 
-            titleLabel = new Label
+            Controls.Add(new Label
             {
-                Text = "Better Captions",
-                ForeColor = TextPrimary,
-                Font = new Font("Segoe UI Semibold", 17f, FontStyle.Bold),
-                AutoSize = true,
-                Location = new Point(94, 20),
-                BackColor = Color.Transparent,
-                UseMnemonic = false
-            };
-            versionBadge = new Label
-            {
-                Text = "v" + (installer.PackagedVersion ?? "1.0.0"),
-                ForeColor = Color.FromArgb(196, 181, 253),
-                BackColor = Color.FromArgb(46, 36, 78),
-                Font = new Font("Segoe UI Semibold", 8.5f),
-                AutoSize = true,
-                Padding = new Padding(7, 3, 7, 3),
-                Location = new Point(275, 25),
-                UseMnemonic = false
-            };
-            subtitleLabel = new Label
-            {
-                Text = "Free & Offline AI Captions • Kinetic Typography • Beat Markers",
-                ForeColor = TextMuted,
-                Font = new Font("Segoe UI", 9f),
-                AutoSize = true,
-                Location = new Point(96, 54),
-                BackColor = Color.Transparent,
-                UseMnemonic = false
-            };
+                Text = "Installs to " + installer.TargetDir,
+                Location = new Point(Pad, 232), Size = new Size(listW, 18), AutoEllipsis = true,
+                ForeColor = Theme.Tertiary, Font = Theme.Body(8.25f), UseMnemonic = false,
+            });
 
-            headerPanel.Controls.Add(titleLabel);
-            headerPanel.Controls.Add(versionBadge);
-            headerPanel.Controls.Add(subtitleLabel);
-            Controls.Add(headerPanel);
-
-            // 2. FEATURE PILLS (Below Header)
-            var pillsPanel = new FlowLayoutPanel
+            // What's happening now, with the download progress.
+            statusLabel = new Label
             {
-                Location = new Point(24, 112),
-                Size = new Size(532, 28),
-                BackColor = Color.Transparent,
-                WrapContents = false
+                Location = new Point(Pad, 268), Size = new Size(listW - 60, 36),
+                ForeColor = Theme.Text, Font = Theme.Body(9f), UseMnemonic = false,
             };
-            pillsPanel.Controls.Add(CreatePill("⚡ 100% Offline"));
-            pillsPanel.Controls.Add(CreatePill("🎙️ Whisper Large v3"));
-            pillsPanel.Controls.Add(CreatePill("🎬 ProRes 4444 Overlay"));
-            pillsPanel.Controls.Add(CreatePill("🎵 Beat Markers"));
-            Controls.Add(pillsPanel);
-
-            // 3. STATUS & ENVIRONMENT CARD
-            cardPanel = new Panel
+            percentLabel = new Label
             {
-                Location = new Point(24, 150),
-                Size = new Size(532, 172),
-                BackColor = CardBg
+                Location = new Point(W - Pad - 60, 268), Size = new Size(60, 18), TextAlign = ContentAlignment.TopRight,
+                ForeColor = Theme.Secondary, Font = Theme.Body(9f), UseMnemonic = false,
             };
-            cardPanel.Paint += delegate(object s, PaintEventArgs pe)
+            progress = new ModernProgressBar { Location = new Point(Pad, 308), Size = new Size(listW, 4), Visible = false };
+            Controls.Add(statusLabel);
+            Controls.Add(percentLabel);
+            Controls.Add(progress);
+
+            // Buttons along the bottom.
+            var bar = new Panel { Dock = DockStyle.Bottom, Height = 60, BackColor = Theme.Surface };
+            bar.Paint += delegate(object s, PaintEventArgs pe)
             {
-                var g = pe.Graphics;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                var rect = new Rectangle(0, 0, cardPanel.Width - 1, cardPanel.Height - 1);
-                using (var path = GraphicsUtils.CreateRoundedRectangle(rect, 10))
-                {
-                    using (var brush = new SolidBrush(CardBg)) g.FillPath(brush, path);
-                    using (var pen = new Pen(CardBorder, 1f)) g.DrawPath(pen, path);
-                }
+                using (var pen = new Pen(Theme.Border, 1f)) pe.Graphics.DrawLine(pen, 0, 0, bar.Width, 0);
             };
-
-            // Card Items
-            premiereStatusIcon = new Label { Location = new Point(20, 16), Size = new Size(18, 18), Text = "✓", Font = new Font("Segoe UI", 10f), ForeColor = GreenSuccess, UseMnemonic = false };
-            premiereStatusText = new Label { Location = new Point(44, 16), Size = new Size(465, 20), ForeColor = TextPrimary, Font = new Font("Segoe UI Semibold", 9.25f), UseMnemonic = false };
-
-            extensionStatusIcon = new Label { Location = new Point(20, 48), Size = new Size(18, 18), Text = "●", Font = new Font("Segoe UI", 10f), ForeColor = GreenSuccess, UseMnemonic = false };
-            extensionStatusText = new Label { Location = new Point(44, 48), Size = new Size(465, 20), ForeColor = TextPrimary, Font = new Font("Segoe UI Semibold", 9.25f), UseMnemonic = false };
-
-            engineStatusIcon = new Label { Location = new Point(20, 80), Size = new Size(18, 18), Text = "●", Font = new Font("Segoe UI", 10f), ForeColor = AmberWarning, UseMnemonic = false };
-            engineStatusText = new Label { Location = new Point(44, 80), Size = new Size(465, 42), ForeColor = TextMuted, Font = new Font("Segoe UI", 9f), UseMnemonic = false };
-
-            pathInfoLabel = new Label
-            {
-                Location = new Point(20, 134),
-                Size = new Size(490, 24),
-                ForeColor = Color.FromArgb(100, 116, 139),
-                Font = new Font("Segoe UI", 8.5f),
-                Text = "Target: " + installer.TargetDir,
-                UseMnemonic = false
-            };
-
-            cardPanel.Controls.Add(premiereStatusIcon);
-            cardPanel.Controls.Add(premiereStatusText);
-            cardPanel.Controls.Add(extensionStatusIcon);
-            cardPanel.Controls.Add(extensionStatusText);
-            cardPanel.Controls.Add(engineStatusIcon);
-            cardPanel.Controls.Add(engineStatusText);
-            cardPanel.Controls.Add(pathInfoLabel);
-            Controls.Add(cardPanel);
-
-            // 4. PROGRESS BAR & STATUS AREA
-            progressStatusLabel = new Label
-            {
-                Location = new Point(24, 332),
-                Size = new Size(450, 20),
-                ForeColor = TextPrimary,
-                Font = new Font("Segoe UI Semibold", 9f),
-                Text = "Ready to install",
-                UseMnemonic = false
-            };
-            progressPercentLabel = new Label
-            {
-                Location = new Point(480, 332),
-                Size = new Size(76, 20),
-                ForeColor = AccentPurple,
-                Font = new Font("Segoe UI Semibold", 9f),
-                TextAlign = ContentAlignment.TopRight,
-                Text = "",
-                UseMnemonic = false
-            };
-            modernProgress = new ModernProgressBar
-            {
-                Location = new Point(24, 356),
-                Size = new Size(532, 10),
-                Visible = false
-            };
-
-            Controls.Add(progressStatusLabel);
-            Controls.Add(progressPercentLabel);
-            Controls.Add(modernProgress);
-
-            // 5. BOTTOM BAR & ACTION BUTTONS
-            bottomBar = new Panel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 80,
-                BackColor = Color.FromArgb(16, 17, 24)
-            };
-            bottomBar.Paint += delegate(object s, PaintEventArgs pe)
-            {
-                using (var pen = new Pen(Color.FromArgb(32, 35, 48), 1f))
-                {
-                    pe.Graphics.DrawLine(pen, 0, 0, bottomBar.Width, 0);
-                }
-            };
-
-            uninstallButton = new ModernButton
-            {
-                Text = "Uninstall",
-                Location = new Point(24, 20),
-                Size = new Size(95, 38),
-                IsDestructive = true
-            };
+            uninstallButton = new ModernButton { Text = "Uninstall", Location = new Point(Pad, 14), Size = new Size(96, 32), IsDestructive = true };
             uninstallButton.Click += delegate { RunUninstall(); };
-
-            openButton = new ModernButton
-            {
-                Text = "Open Premiere",
-                Location = new Point(255, 20),
-                Size = new Size(135, 38),
-                IsPrimary = false
-            };
+            openButton = new ModernButton { Text = "Open Premiere Pro", Location = new Point(W - Pad - 120 - 8 - 140, 14), Size = new Size(140, 32) };
             openButton.Click += delegate { OpenPremiere(); };
-
-            installButton = new ModernButton
-            {
-                Text = "Install Extension",
-                Location = new Point(400, 20),
-                Size = new Size(156, 38),
-                IsPrimary = true
-            };
+            installButton = new ModernButton { Text = "Install", Location = new Point(W - Pad - 120, 14), Size = new Size(120, 32), IsPrimary = true };
             installButton.Click += delegate { RunInstall(); };
-
-            cancelButton = new ModernButton
-            {
-                Text = "Cancel",
-                Location = new Point(426, 20),
-                Size = new Size(130, 38),
-                IsDestructive = true,
-                Visible = false
-            };
+            cancelButton = new ModernButton { Text = "Cancel", Location = new Point(W - Pad - 120, 14), Size = new Size(120, 32), Visible = false };
             cancelButton.Click += delegate { CancelDownload(); };
-
-            bottomBar.Controls.Add(uninstallButton);
-            bottomBar.Controls.Add(openButton);
-            bottomBar.Controls.Add(installButton);
-            bottomBar.Controls.Add(cancelButton);
-            Controls.Add(bottomBar);
+            bar.Controls.Add(uninstallButton);
+            bar.Controls.Add(openButton);
+            bar.Controls.Add(installButton);
+            bar.Controls.Add(cancelButton);
+            Controls.Add(bar);
 
             FormClosing += OnFormClosing;
             AcceptButton = installButton;
@@ -1166,97 +1027,41 @@ namespace BetterCaptionsSetup
             if (startWithUninstall) Shown += delegate { RunUninstall(); };
         }
 
-        static Label CreatePill(string text)
+        void SetStatus(string text, Color color)
         {
-            var l = new Label
-            {
-                Text = text,
-                AutoSize = true,
-                Font = new Font("Segoe UI Semibold", 8.25f, FontStyle.Regular),
-                ForeColor = Color.FromArgb(203, 213, 225),
-                BackColor = Color.FromArgb(30, 32, 45),
-                Padding = new Padding(8, 4, 8, 4),
-                Margin = new Padding(0, 0, 8, 0),
-                UseMnemonic = false
-            };
-            l.Paint += delegate(object s, PaintEventArgs pe)
-            {
-                using (var pen = new Pen(Color.FromArgb(52, 56, 76), 1f))
-                {
-                    pe.Graphics.DrawRectangle(pen, 0, 0, l.Width - 1, l.Height - 1);
-                }
-            };
-            return l;
+            statusLabel.Text = text;
+            statusLabel.ForeColor = color;
         }
 
         void RefreshState(string message)
         {
             var premiereExe = ExtensionInstaller.FindPremiere();
             if (premiereExe != null)
-            {
-                premiereStatusIcon.Text = "✓";
-                premiereStatusIcon.ForeColor = GreenSuccess;
-                premiereStatusText.Text = "Adobe Premiere Pro Detected";
-            }
+                premiereRow.Set(IconKind.CircleCheck, Theme.Success, "Found " + Path.GetFileName(Path.GetDirectoryName(premiereExe)));
             else
-            {
-                premiereStatusIcon.Text = "!";
-                premiereStatusIcon.ForeColor = AmberWarning;
-                premiereStatusText.Text = "Premiere Pro: Not found in standard Program Files path";
-            }
+                premiereRow.Set(IconKind.Alert, Theme.Warning, "Not found in Program Files\\Adobe. The panel still installs.");
 
             var installed = installer.InstalledVersion;
             var packaged = installer.PackagedVersion;
-
             if (installed != null)
-            {
-                extensionStatusIcon.Text = "✓";
-                extensionStatusIcon.ForeColor = GreenSuccess;
-                extensionStatusText.Text = "Panel Extension: Installed (v" + installed + ")";
-                installButton.Text = "Reinstall";
-            }
+                panelRow.Set(IconKind.CircleCheck, Theme.Success, "Installed, version " + installed + (installed != packaged ? " (this setup has " + packaged + ")" : ""));
             else
-            {
-                extensionStatusIcon.Text = "●";
-                extensionStatusIcon.ForeColor = Color.FromArgb(148, 163, 184);
-                extensionStatusText.Text = "Panel Extension: Not Installed";
-                installButton.Text = "Install Extension";
-            }
-
+                panelRow.Set(IconKind.CircleDashed, Theme.Tertiary, "Not installed yet");
+            installButton.Text = installed == null ? "Install" : "Reinstall";
             uninstallButton.Enabled = installed != null;
             openButton.Enabled = installed != null && premiereExe != null;
 
             if (engine.IsInstalled)
-            {
-                engineStatusIcon.Text = "✓";
-                engineStatusIcon.ForeColor = GreenSuccess;
-                engineStatusText.Text = "Speech Engine: Installed & Ready (Whisper Large v3 Turbo, 100% offline).";
-            }
+                engineRow.Set(IconKind.CircleCheck, Theme.Success, "Installed, with the Large v3 Turbo model");
             else if (installer.Options.NoEngine)
-            {
-                engineStatusIcon.Text = "!";
-                engineStatusIcon.ForeColor = AmberWarning;
-                engineStatusText.Text = "Speech Engine: Skipped via /noengine flag.";
-            }
+                engineRow.Set(IconKind.Alert, Theme.Warning, "Skipped (/noengine). The panel's setup button can download it.");
             else
-            {
-                long remMb = Math.Max(1, engine.RemainingBytes / 1000000);
-                engineStatusIcon.Text = "↓";
-                engineStatusIcon.ForeColor = AccentPurple;
-                engineStatusText.Text = "Speech Engine: Downloads on setup (~" + remMb + " MB, Whisper Large v3 Turbo).";
-            }
+                engineRow.Set(IconKind.Download, Theme.Secondary, "Downloads after the panel installs, about " + Math.Max(1, engine.RemainingBytes / 1000000) + " MB, one time");
 
-            if (message != null)
-            {
-                progressStatusLabel.Text = message;
-                progressPercentLabel.Text = "";
-            }
-            else
-            {
-                progressStatusLabel.Text = installed == null
-                    ? "Click 'Install Extension' to begin setup."
-                    : "Extension is ready. Open Premiere Pro → Window → Extensions → Better Captions.";
-            }
+            if (message != null) SetStatus(message, Theme.Text);
+            else if (installed == null) SetStatus("Close Premiere Pro, then click Install.", Theme.Secondary);
+            else SetStatus("In Premiere Pro, open Window > Extensions > Better Captions.", Theme.Secondary);
+            percentLabel.Text = "";
         }
 
         bool WaitForPremiereToClose()
@@ -1264,7 +1069,7 @@ namespace BetterCaptionsSetup
             while (ExtensionInstaller.IsPremiereRunning())
             {
                 var answer = MessageBox.Show(this,
-                    "Adobe Premiere Pro is currently open.\n\nPlease save your work, close Premiere Pro, then click Retry.",
+                    "Premiere Pro is open. Save your work, close Premiere Pro, then click Retry.",
                     "Close Premiere Pro", MessageBoxButtons.RetryCancel, MessageBoxIcon.Information);
                 if (answer != DialogResult.Retry) return false;
             }
@@ -1277,30 +1082,25 @@ namespace BetterCaptionsSetup
             try
             {
                 UseWaitCursor = true;
-                progressStatusLabel.Text = "Installing extension files...";
+                SetStatus("Installing the panel...", Theme.Text);
+                Application.DoEvents();
                 var changed = installer.Install();
-                var note = changed.Count > 0
-                    ? " (Configured debug mode for " + string.Join(", ", changed) + ")"
-                    : "";
-                var done = "Extension installed successfully!" + note;
+                var note = changed.Count > 0 ? " Unsigned extensions were turned on for " + string.Join(", ", changed) + "." : "";
+                var done = "Panel installed." + note;
                 if (!installer.Options.NoEngine && !engine.IsInstalled)
                 {
                     StartEngineDownload(done);
                 }
                 else
                 {
-                    RefreshState(done);
-                    progressStatusLabel.ForeColor = GreenSuccess;
-                    MessageBox.Show(this,
-                        "Better Captions installed successfully!\n\nLaunch Premiere Pro and go to Window > Extensions > Better Captions.",
-                        "Setup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    RefreshState(null);
+                    SetStatus(done + " In Premiere Pro, open Window > Extensions > Better Captions.", Theme.Success);
                 }
             }
             catch (Exception e)
             {
-                MessageBox.Show(this, "Installation failed:\n" + e.Message, "Better Captions", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                progressStatusLabel.Text = "Installation failed: " + e.Message;
-                progressStatusLabel.ForeColor = Color.FromArgb(248, 113, 113);
+                SetStatus("Install failed: " + e.Message, Theme.Error);
+                System.Media.SystemSounds.Exclamation.Play();
             }
             finally
             {
@@ -1316,12 +1116,13 @@ namespace BetterCaptionsSetup
             uninstallButton.Visible = false;
             cancelButton.Visible = true;
             cancelButton.Enabled = true;
+            AcceptButton = null;
 
-            modernProgress.Value = 0;
-            modernProgress.Visible = true;
-            progressStatusLabel.ForeColor = TextPrimary;
-            progressStatusLabel.Text = "Downloading speech engine & AI model...";
-            progressPercentLabel.Text = "0%";
+            progress.Value = 0;
+            progress.Visible = true;
+            SetStatus(installedMessage + " Downloading the speech engine...", Theme.Text);
+            percentLabel.Text = "0%";
+            engineRow.Set(IconKind.Download, Theme.Accent, "Downloading...");
 
             var worker = new Thread(delegate()
             {
@@ -1329,20 +1130,17 @@ namespace BetterCaptionsSetup
                 bool ok = false;
                 try
                 {
-                    engine.Run(delegate(string message, int percent)
-                    {
-                        OnUi(delegate { ShowProgress(message, percent); });
-                    });
+                    engine.Run(delegate(string message, int percent) { OnUi(delegate { ShowProgress(message, percent); }); });
                     ok = true;
-                    result = "Speech engine & Large v3 Turbo model ready! All captions work 100% offline.";
+                    result = "Ready. Captions now work without internet. In Premiere Pro, open Window > Extensions > Better Captions.";
                 }
                 catch (OperationCanceledException)
                 {
-                    result = "Download cancelled. You can click Reinstall anytime to resume where you left off.";
+                    result = "Download stopped. The panel is installed; click Reinstall to finish the download from where it stopped.";
                 }
                 catch (Exception e)
                 {
-                    result = "Download failed: " + e.Message + " (Click Reinstall to retry).";
+                    result = "The speech engine couldn't be downloaded: " + e.Message + " Check your connection and click Reinstall, or use Set up offline engine in the panel.";
                 }
                 OnUi(delegate { FinishDownload(result, ok); });
             });
@@ -1364,47 +1162,37 @@ namespace BetterCaptionsSetup
             if (!downloading) return;
             if (percent < 0)
             {
-                modernProgress.StartMarquee();
-                progressPercentLabel.Text = "";
+                progress.StartMarquee();
+                percentLabel.Text = "";
             }
             else
             {
-                modernProgress.StopMarquee();
-                modernProgress.Value = percent;
-                progressPercentLabel.Text = percent + "%";
+                progress.StopMarquee();
+                progress.Value = percent;
+                percentLabel.Text = percent + "%";
             }
-            progressStatusLabel.Text = message;
+            SetStatus(message, Theme.Text);
         }
 
         void FinishDownload(string message, bool ok)
         {
             downloading = false;
-            modernProgress.Visible = false;
+            progress.StopMarquee();
+            progress.Visible = false;
             cancelButton.Visible = false;
             installButton.Visible = true;
             openButton.Visible = true;
             uninstallButton.Visible = true;
-
+            AcceptButton = installButton;
             RefreshState(null);
-            progressStatusLabel.Text = message;
-            progressStatusLabel.ForeColor = ok ? GreenSuccess : Color.FromArgb(248, 113, 113);
-
-            if (ok)
-            {
-                MessageBox.Show(this,
-                    "Better Captions and the Offline AI Engine are ready!\n\nOpen Premiere Pro → Window → Extensions → Better Captions.",
-                    "Installation Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            else
-            {
-                System.Media.SystemSounds.Exclamation.Play();
-            }
+            SetStatus(message, ok ? Theme.Success : Theme.Warning);
+            if (!ok) System.Media.SystemSounds.Exclamation.Play();
         }
 
         void CancelDownload()
         {
             cancelButton.Enabled = false;
-            progressStatusLabel.Text = "Stopping download...";
+            SetStatus("Stopping the download...", Theme.Text);
             engine.Cancel();
         }
 
@@ -1412,7 +1200,7 @@ namespace BetterCaptionsSetup
         {
             if (!downloading) return;
             var answer = MessageBox.Show(this,
-                "The speech engine is currently downloading.\n\nDo you want to stop the download and exit?\n(The panel is already installed; setup will resume where it stopped if re-opened).",
+                "The speech engine is still downloading. Stop and close?\n\nThe panel is already installed. Run setup again later to finish the download; it continues where it stopped.",
                 "Better Captions Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (answer == DialogResult.Yes) engine.Cancel();
             else e.Cancel = true;
@@ -1422,7 +1210,7 @@ namespace BetterCaptionsSetup
         {
             if (installer.InstalledVersion == null)
             {
-                RefreshState("Better Captions is not installed.");
+                RefreshState("Better Captions isn't installed.");
                 return;
             }
             if (!WaitForPremiereToClose()) return;
@@ -1431,7 +1219,7 @@ namespace BetterCaptionsSetup
             if (Directory.Exists(ExtensionInstaller.EngineDataDir))
             {
                 var answer = MessageBox.Show(this,
-                    "Do you also want to delete the downloaded speech engine and saved caption presets?\n\nChoose 'No' to keep them so you won't need to re-download if you install again in the future.",
+                    "Also delete the downloaded speech engine, saved captions and presets?\n\nChoose No to keep them, so you won't need to download them again if you reinstall.",
                     "Uninstall Better Captions", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
                 if (answer == DialogResult.Cancel) return;
                 removeData = answer == DialogResult.Yes;
@@ -1440,13 +1228,13 @@ namespace BetterCaptionsSetup
             try
             {
                 installer.Uninstall(removeData);
-                RefreshState("Better Captions has been removed.");
-                progressStatusLabel.Text = "Better Captions was uninstalled.";
-                progressStatusLabel.ForeColor = AmberWarning;
+                RefreshState(null);
+                SetStatus("Better Captions was uninstalled.", Theme.Text);
             }
             catch (Exception e)
             {
-                MessageBox.Show(this, "Uninstall failed:\n" + e.Message, "Better Captions", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                SetStatus("Uninstall failed: " + e.Message, Theme.Error);
+                System.Media.SystemSounds.Exclamation.Play();
             }
         }
 
@@ -1455,11 +1243,11 @@ namespace BetterCaptionsSetup
             var exe = ExtensionInstaller.FindPremiere();
             if (exe == null)
             {
-                MessageBox.Show(this, "Premiere Pro was not found in standard Program Files paths.", "Better Captions");
+                SetStatus("Premiere Pro wasn't found in Program Files\\Adobe.", Theme.Warning);
                 return;
             }
             Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
-            progressStatusLabel.Text = "Opening Premiere Pro... Go to Window > Extensions > Better Captions.";
+            SetStatus("Starting Premiere Pro. When it opens, go to Window > Extensions > Better Captions.", Theme.Secondary);
         }
     }
 }

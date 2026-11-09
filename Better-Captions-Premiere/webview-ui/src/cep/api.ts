@@ -225,11 +225,18 @@ export const cepApi = {
       return { success: false, error: e?.message || String(e) };
     }
   },
-  // LUT on timeline clips (selected clips, or the clip under the playhead).
+  // LUT on the timeline: an adjustment layer over the selected clips (or the
+  // clip under the playhead), or the clips themselves; see bc_lutBegin.
   getLutTarget: () => evalHost("bc_getLutTarget"),
-  setClipLut: (file: string, intensity: number, strategy: number) => evalHost("bc_setClipLut", file, intensity, strategy),
-  restoreClipLut: () => evalHost("bc_restoreClipLut"),
-  keepClipLut: () => evalHost("bc_keepClipLut"),
+  lutBegin: (mode: "adjustment" | "clip") => evalHost("bc_lutBegin", mode),
+  lutLookMenu: () => evalHost("bc_lutLookMenu"),
+  lutSetLook: (index: number, intensity: number) => evalHost("bc_lutSetLook", index, intensity),
+  lutUndo: () => evalHost("bc_lutUndo"),
+  lutKeep: () => evalHost("bc_lutKeep"),
+  listCreativeLuts: async () => luts.listCreativeLuts(),
+  inCreativeFolder: async (file: string) => luts.inCreativeFolder(file),
+  addToLookMenu: async (file: string) => luts.addToLookMenu(file),
+  sameLutFile: (a: string, b: string) => luts.sameLutFile(a, b),
   lumetriReport: () => evalHost("bc_lumetriReport"),
 
   // Native "Open" dialog for an audio/video file (CEP's built-in cep.fs API).
