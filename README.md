@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Adobe Premiere Pro](https://img.shields.io/badge/Premiere%20Pro-2024%20%7C%202025%20%7C%202026-9999FF?logo=adobe-premiere-pro&logoColor=white)](https://www.adobe.com/products/premiere.html)
 [![Platform: Windows & macOS](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-blue)](#installation)
 [![Offline AI Engine](https://img.shields.io/badge/AI%20Engine-whisper.cpp%20Large%20v3%20Turbo-green)](#how-it-works)
@@ -57,18 +57,24 @@
 
 Better Captions can be installed as a **CEP Extension** (recommended) or a **UXP Plugin**.
 
-### Option A: 1-Click Installer for Windows (Easiest)
+### Option A: 1-Click Installer for Windows (Easiest & Recommended)
 
 <p align="center">
-  <img src="installer_preview.png" alt="Better Captions Modern Setup UI" width="540" />
+  <img src="installer_preview.png" alt="Better Captions Modern Setup UI" width="560" />
 </p>
 
+The Windows installer features a modern dark dashboard tailored for Premiere Pro editors:
+- **No Admin Rights Required**: Installs directly to your user profile (`%APPDATA%`).
+- **Auto-Detection**: Instantly verifies Adobe Premiere Pro installation on your system.
+- **One-Time AI Setup**: Automatically fetches and unpacks the offline speech engine (~700 MB, including `whisper.cpp`, `ffmpeg`, and OpenAI's **Large v3 Turbo** model).
+- **Offline Forever**: Once downloaded, all transcription works 100% offline with zero cloud dependency.
+
+#### Steps:
 1. **Close Premiere Pro.**
-2. Double-click **`BetterCaptionsSetup.exe`**.
-3. Click **Install**.
-   > *Note:* If Windows SmartScreen appears ("Windows protected your PC"), click **More info** → **Run anyway** (this appears because the open-source installer is self-compiled without an expensive commercial code-signing certificate).
-4. On first launch, the installer automatically downloads the offline speech engine (~700 MB, including `whisper.cpp`, `ffmpeg`, and the OpenAI **Large v3 Turbo** model) to `%APPDATA%\BetterCaptions\engine`.
-5. Open Premiere Pro and navigate to:  
+2. Double-click **`BetterCaptionsSetup.exe`** (or download it directly from [Releases](https://github.com/senura-d/Better-Captions-/releases/latest)).
+3. Click **Install Extension**.
+   > *Note:* If Windows SmartScreen displays *"Windows protected your PC"*, click **More info** → **Run anyway** (standard for open-source self-compiled executables without commercial code-signing certificates).
+4. Launch Premiere Pro and open:  
    **Window → Extensions → Better Captions**
 
 ---
@@ -87,12 +93,13 @@ If you prefer not to use the `.exe`, you can install the extension directly:
 
 ---
 
-### Option C: UXP Plugin Installation (Creative Cloud or Manual)
+### Option C: UXP Plugin Installation (Creative Cloud)
 
-- **With Creative Cloud**: Double-click **`BetterCaptions.ccx`** and follow the Adobe Creative Cloud prompt.
-- **Without Creative Cloud**: Double-click **`Install Better Captions.bat`** (requires Administrator permissions to register the UXP plugin).
-- In Premiere Pro, open via:  
-  **Window → UXP Plugins → Better Captions**
+If you use the Adobe Creative Cloud desktop app:
+1. Double-click **`BetterCaptions.ccx`** in the repository root or download it from [Releases](https://github.com/senura-d/Better-Captions-/releases/latest).
+2. Creative Cloud will prompt to install the plugin. Click **Install**.
+3. In Premiere Pro, open via:  
+   **Window → UXP Plugins → Better Captions**
 
 ---
 
@@ -247,7 +254,7 @@ Yes! The transcription produces standard Unicode text. Make sure to select a Uni
 
 ## 📄 License & Attribution
 
-- Released under the [MIT License](LICENSE).
+- Released under the [Apache License 2.0](LICENSE).
 - Speech transcription powered by [whisper.cpp](https://github.com/ggerganov/whisper.cpp) and [OpenAI Whisper](https://github.com/openai/whisper).
 - Beat detection uses [music-tempo](https://github.com/killawhiskey/music-tempo) (Beatroot algorithm).
 - Audio processing powered by [FFmpeg](https://ffmpeg.org/).

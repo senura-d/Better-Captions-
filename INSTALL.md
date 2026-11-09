@@ -5,7 +5,7 @@ Better Captions comes in two forms. Install **one** of them:
 | | Extension (CEP) | UXP plugin |
 |---|---|---|
 | Opens from | **Window → Extensions → Better Captions** | Window → UXP Plugins → Better Captions |
-| Installs with | `Install Extension.bat` (no admin, no Creative Cloud) | `Install Better Captions.bat` (admin), or Creative Cloud |
+| Installs with | `Install Extension.bat` (no admin, no Creative Cloud) | Double-click `BetterCaptions.ccx` (Creative Cloud) |
 | Files | `BetterCaptions-Extension\com.bettercaptions.cep\` | `BetterCaptions.ccx` |
 | Offline captions | Yes | Yes |
 | Uses Premiere's own transcript | No (offline captions only) | Yes, as a fallback |
@@ -50,15 +50,10 @@ The extension keeps its offline engine and saved captions in `%APPDATA%\BetterCa
 
 ## UXP plugin (alternative)
 
-### Without Creative Cloud
-1. Close Premiere Pro.
-2. Double-click **`Install Better Captions.bat`** and click **Yes** on the administrator prompt.
-3. Open Premiere, then go to **Window → UXP Plugins → Better Captions**.
-
-To remove it, run **`Uninstall Better Captions.bat`**. If the panel doesn't appear, run `powershell -ExecutionPolicy Bypass -File install-better-captions.ps1 -Local` instead. This method isn't documented by Adobe, so an update could stop it working.
-
 ### With Creative Cloud
-Install the Creative Cloud desktop app, close Premiere, double-click `BetterCaptions.ccx` and click **Install**.
+1. Close Premiere Pro.
+2. Double-click **`BetterCaptions.ccx`** and follow the Adobe Creative Cloud prompt to click **Install**.
+3. Open Premiere Pro, then go to **Window → UXP Plugins → Better Captions**.
 
 ## Using it
 
